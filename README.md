@@ -42,6 +42,29 @@ npm test
 npm run build
 ```
 
+## Local Web Comparison Mode
+
+For accuracy testing, use the app as a local web UI first. The Chrome extension shell is optional at this stage.
+
+Terminal 1:
+
+```bash
+npm run helper:codex
+```
+
+Terminal 2:
+
+```bash
+npm run dev
+```
+
+Then open the Vite local URL, upload the same HWPX sample and input content, and download both outputs:
+
+- `rules-output.hwpx`
+- `codex-output.hwpx`
+
+Open both in Hancom and judge which one needs less manual correction.
+
 ## Load in Chrome
 
 1. Run `npm run build`.

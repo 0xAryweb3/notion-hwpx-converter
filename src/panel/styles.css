@@ -257,6 +257,10 @@ button {
   color: #ffffff;
 }
 
+.primary-button.codex {
+  background: #137333;
+}
+
 .primary-button:disabled {
   cursor: not-allowed;
   background: #a8c7fa;
@@ -294,6 +298,13 @@ button {
 
 .action-bar p {
   min-width: 0;
+}
+
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 button:focus-visible,

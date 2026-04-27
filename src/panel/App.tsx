@@ -5,6 +5,7 @@ import type { DocumentBlock, DocumentBlockRole } from "../features/document/type
 import { generateHwpx } from "../features/hwpx/render";
 import { loadHwpxTemplate } from "../features/hwpx/template";
 import type { HwpxTemplate } from "../features/hwpx/template";
+import { matchBlocksWithCodex } from "../features/matching/codexClient";
 import { parseNotionSource } from "../features/notion-export/parse";
 
 const roleOptions: Array<{ value: DocumentBlockRole; label: string }> = [
@@ -91,7 +92,7 @@ export function App() {
     setBlocks((currentBlocks) => currentBlocks.filter((block) => block.id !== id));
   }
 
-  function downloadHwpx(): void {
+  function downloadRulesHwpx(): void {
     if (template === null) {
       setStatus("HWPX 양식을 먼저 올려주세요.");
       return;
@@ -103,8 +104,30 @@ export function App() {
     }
 
     const output = generateHwpx(template, blocks);
-    downloadBytes(output, "notion-converted.hwpx");
-    setStatus("HWPX 파일을 생성했습니다.");
+    downloadBytes(output, "rules-output.hwpx");
+    setStatus("Rule-only HWPX 파일을 생성했습니다.");
+  }
+
+  async function downloadCodexHwpx(): Promise<void> {
+    if (template === null) {
+      setStatus("HWPX 양식을 먼저 올려주세요.");
+      return;
+    }
+
+    if (blocks.length === 0) {
+      setStatus("변환할 내용이 없습니다.");
+      return;
+    }
+
+    try {
+      setStatus("Codex CLI로 문단 역할을 다시 매칭하는 중입니다.");
+      const codexBlocks = await matchBlocksWithCodex(template, blocks);
+      const output = generateHwpx(template, codexBlocks);
+      downloadBytes(output, "codex-output.hwpx");
+      setStatus("Codex HWPX 파일을 생성했습니다.");
+    } catch (error) {
+      setStatus(`${readErrorMessage(error)} helper 실행: npm run helper:codex`);
+    }
   }
 
   return (
@@ -234,10 +257,23 @@ export function App() {
 
       <footer className="action-bar">
         <p aria-live="polite">{status}</p>
-        <button className="primary-button" type="button" disabled={!canGenerate} onClick={downloadHwpx}>
-          <Download size={16} aria-hidden="true" />
-          HWPX 생성
-        </button>
+        <div className="download-actions">
+          <button className="primary-button" type="button" disabled={!canGenerate} onClick={downloadRulesHwpx}>
+            <Download size={16} aria-hidden="true" />
+            Rules HWPX
+          </button>
+          <button
+            className="primary-button codex"
+            type="button"
+            disabled={!canGenerate}
+            onClick={() => {
+              void downloadCodexHwpx();
+            }}
+          >
+            <Download size={16} aria-hidden="true" />
+            Codex HWPX
+          </button>
+        </div>
       </footer>
     </main>
   );

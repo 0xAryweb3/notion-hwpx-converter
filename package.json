@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b && vite build",
+    "helper:codex": "node helper/codex-helper.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "vite"
