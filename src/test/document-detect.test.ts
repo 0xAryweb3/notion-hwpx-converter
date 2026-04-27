@@ -10,6 +10,10 @@ describe("detectBlockRole", () => {
     expect(detectBlockRole("1. 입찰내용", 2)).toBe("section");
   });
 
+  it("does not treat Korean dates as numeric section headings", () => {
+    expect(detectBlockRole("2025. 6. 30.", 2)).toBe("body");
+  });
+
   it("detects Korean alpha items with leading spaces", () => {
     expect(detectBlockRole("  가. 용 역 명: 제12회 대학생 물환경 정책", 3)).toBe("koreanItem");
   });
@@ -36,6 +40,13 @@ describe("normalizeLinesToBlocks", () => {
     expect(normalizeLinesToBlocks(["", "1. 입찰내용", "  가. 용역기간: 6개월"])).toEqual([
       { id: "block-1", role: "section", text: "1. 입찰내용" },
       { id: "block-2", role: "koreanItem", text: "  가. 용역기간: 6개월" }
+    ]);
+  });
+
+  it("marks the first prominent line after a notice number as title", () => {
+    expect(normalizeLinesToBlocks(["환경부공고 제2025-436호", "「제12회 대학생 물환경 정책‧기술 공모전」 입찰 공고"])).toEqual([
+      { id: "block-1", role: "noticeNumber", text: "환경부공고 제2025-436호" },
+      { id: "block-2", role: "title", text: "「제12회 대학생 물환경 정책‧기술 공모전」 입찰 공고" }
     ]);
   });
 });

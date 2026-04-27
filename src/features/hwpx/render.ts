@@ -19,6 +19,7 @@ export function generateHwpx(template: HwpxTemplate, blocks: DocumentBlock[]): U
   }
 
   files["Contents/section0.xml"] = new Uint8Array(strToU8(renderSectionXml(template, blocks)));
+  files["Preview/PrvText.txt"] = new Uint8Array(strToU8(blocks.map((block) => block.text).join("\r\n")));
 
   return zipSync(files);
 }

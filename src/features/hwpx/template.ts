@@ -1,5 +1,5 @@
 import { strFromU8, unzipSync } from "fflate";
-import { detectBlockRole } from "../document/detect";
+import { normalizeLinesToBlocks } from "../document/detect";
 import type { DocumentBlockRole } from "../document/types";
 
 export interface HwpxParagraphStyle {
@@ -47,8 +47,8 @@ export function loadHwpxTemplate(data: ArrayBuffer | Uint8Array): HwpxTemplate {
 function inferStyleMap(sectionXml: string): HwpxStyleMap {
   const inferred = { ...fallbackStyleMap };
   const paragraphPattern = /<hp:p\b([^>]*)>([\s\S]*?)<\/hp:p>/g;
+  const paragraphs: Array<{ attrs: string; body: string; text: string }> = [];
   let match: RegExpExecArray | null;
-  let textParagraphIndex = 0;
 
   while ((match = paragraphPattern.exec(sectionXml)) !== null) {
     const paragraphAttrs = match[1] ?? "";
@@ -59,17 +59,28 @@ function inferStyleMap(sectionXml: string): HwpxStyleMap {
       continue;
     }
 
-    const role = detectBlockRole(text, textParagraphIndex);
-    const paraPrIDRef = readXmlAttribute(paragraphAttrs, "paraPrIDRef");
-    const styleIDRef = readXmlAttribute(paragraphAttrs, "styleIDRef");
-    const charPrIDRef = readFirstRunCharPr(paragraphBody);
+    paragraphs.push({ attrs: paragraphAttrs, body: paragraphBody, text });
+  }
+
+  const roles = normalizeLinesToBlocks(paragraphs.map((paragraph) => paragraph.text));
+  const seenRoles = new Set<DocumentBlockRole>();
+
+  paragraphs.forEach((paragraph, index) => {
+    const role = roles[index]?.role;
+
+    if (role === undefined || seenRoles.has(role)) {
+      return;
+    }
+
+    const paraPrIDRef = readXmlAttribute(paragraph.attrs, "paraPrIDRef");
+    const styleIDRef = readXmlAttribute(paragraph.attrs, "styleIDRef");
+    const charPrIDRef = readFirstRunCharPr(paragraph.body);
 
     if (paraPrIDRef !== null && styleIDRef !== null && charPrIDRef !== null) {
       inferred[role] = { paraPrIDRef, charPrIDRef, styleIDRef };
+      seenRoles.add(role);
     }
-
-    textParagraphIndex += 1;
-  }
+  });
 
   return inferred;
 }
