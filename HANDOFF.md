@@ -3,7 +3,7 @@ Build a Chrome extension MVP that converts a Notion export or pasted text into a
 
 ## Current Status
 Branch: `feat/notion-hwpx-converter`
-Last commit before this handoff update: `21b3965`
+Last implementation commit before this handoff update: `2b3cb32`
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -11,6 +11,7 @@ Implemented:
 - Notion export parsing for `.zip`, `.md`, `.markdown`, `.html`, and `.htm`.
 - HWPX template loading and section rendering by reusing template paragraph/character style references.
 - Side panel UI for template upload, content upload/paste, block role editing, and HWPX download.
+- Review fixes for date detection, notice-number-then-title detection, first-match style inference, and generated preview text.
 
 ## What Was Tried
 - Confirmed the provided sample HWPX is a ZIP package and contains `Contents/header.xml` plus `Contents/section0.xml`.
@@ -18,6 +19,7 @@ Implemented:
 - Used TDD for document role detection, Notion export parsing, and HWPX rendering.
 - Fixed build config issues by splitting Vite and Vitest configs.
 - Fixed fflate ZIP test data construction by ensuring typed arrays are created in the active runtime realm.
+- Code review found that the real sample could infer wrong styles from later paragraphs; fixed by keeping first matched role styles and rejecting date-like section matches.
 
 ## Next Steps
 Load `dist/` in Chrome and manually test with the sample file at `/Users/hyeon/Downloads/입찰공고문(2025-436) (제12회 대학생 물환경 정책·기술 공모전).hwpx`, then open the generated HWPX in Hancom to verify visual fidelity.
