@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { fetchPublicNotionPageText } from "./notion-public.mjs";
 
 const host = "127.0.0.1";
 const port = Number.parseInt(process.env.CODEX_HWPX_HELPER_PORT ?? "8765", 10);
@@ -47,6 +48,18 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.url === "/notion/public" && request.method === "POST") {
+    try {
+      const payload = JSON.parse(await readRequestBody(request));
+      const url = typeof payload.url === "string" ? payload.url : "";
+      const result = await fetchPublicNotionPageText(url);
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, 500, { error: readErrorMessage(error) });
+    }
+    return;
+  }
+
   if (request.url !== "/match" || request.method !== "POST") {
     sendJson(response, 404, { error: "Not found" });
     return;
@@ -76,13 +89,13 @@ async function runCodexMatcher(payload) {
     await runCommand(
       "codex",
       [
+        "--ask-for-approval",
+        "never",
         "exec",
         "--ephemeral",
         "--ignore-rules",
         "--sandbox",
         "read-only",
-        "--ask-for-approval",
-        "never",
         "--output-schema",
         schemaPath,
         "--output-last-message",
@@ -127,6 +140,7 @@ ${JSON.stringify(payload.blocks ?? [], null, 2)}
 
 function runCommand(command, args, stdin) {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const child = spawn(command, args, {
       cwd: process.cwd(),
       stdio: ["pipe", "pipe", "pipe"]
@@ -135,8 +149,28 @@ function runCommand(command, args, stdin) {
     let stdout = "";
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error(`Codex matcher timed out after ${timeoutMs}ms`));
+      finishReject(new Error(`Codex matcher timed out after ${timeoutMs}ms`));
     }, timeoutMs);
+
+    function finishResolve() {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    }
+
+    function finishReject(error) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    }
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -144,18 +178,23 @@ function runCommand(command, args, stdin) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve();
+    child.stdin.on("error", (error) => {
+      if (readErrorCode(error) === "EPIPE") {
         return;
       }
 
-      reject(new Error(`codex exec failed with code ${code}\n${stderr || stdout}`));
+      finishReject(error);
+    });
+    child.on("error", (error) => {
+      finishReject(error);
+    });
+    child.on("close", (code) => {
+      if (code === 0) {
+        finishResolve();
+        return;
+      }
+
+      finishReject(new Error(`codex exec failed with code ${code}\n${stderr || stdout}`));
     });
 
     child.stdin.end(stdin);
@@ -180,7 +219,9 @@ function readRequestBody(request) {
 function setCorsHeaders(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Access-Control-Request-Private-Network");
+  response.setHeader("Access-Control-Allow-Private-Network", "true");
+  response.setHeader("Access-Control-Max-Age", "600");
 }
 
 function sendJson(response, status, value) {
@@ -190,4 +231,8 @@ function sendJson(response, status, value) {
 
 function readErrorMessage(error) {
   return error instanceof Error ? error.message : "Unknown error";
+}
+
+function readErrorCode(error) {
+  return typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
 }

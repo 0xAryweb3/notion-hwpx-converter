@@ -10,12 +10,13 @@ interface CodexMatchResponse {
 }
 
 export async function matchBlocksWithCodex(template: HwpxTemplate, blocks: DocumentBlock[]): Promise<DocumentBlock[]> {
+  const matchableBlocks = blocks.filter((block) => block.role !== "image");
   const response = await fetch(helperUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       templateSummary: template.styleMap,
-      blocks: blocks.map((block) => ({ id: block.id, role: block.role, text: block.text }))
+      blocks: matchableBlocks.map((block) => ({ id: block.id, role: block.role, text: block.text }))
     })
   });
 
@@ -77,6 +78,8 @@ function isDocumentBlockRole(value: unknown): value is RoleAssignment["role"] {
     value === "section" ||
     value === "koreanItem" ||
     value === "dashItem" ||
+    value === "tableRow" ||
+    value === "image" ||
     value === "note"
   );
 }

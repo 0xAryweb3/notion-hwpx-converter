@@ -26,6 +26,11 @@ describe("detectBlockRole", () => {
     expect(detectBlockRole("      ※ 직접생산확인증명서는 유효기간 내에 있어야 함", 5)).toBe("note");
   });
 
+  it("detects table rows", () => {
+    expect(detectBlockRole("구분\t기준", 3)).toBe("tableRow");
+    expect(detectBlockRole("| 구분 | 기준 |", 3)).toBe("tableRow");
+  });
+
   it("uses the first non-structural line as title", () => {
     expect(detectBlockRole("「제12회 대학생 물환경 정책‧기술 공모전」 입찰 공고", 0)).toBe("title");
   });
@@ -47,6 +52,19 @@ describe("normalizeLinesToBlocks", () => {
     expect(normalizeLinesToBlocks(["환경부공고 제2025-436호", "「제12회 대학생 물환경 정책‧기술 공모전」 입찰 공고"])).toEqual([
       { id: "block-1", role: "noticeNumber", text: "환경부공고 제2025-436호" },
       { id: "block-2", role: "title", text: "「제12회 대학생 물환경 정책‧기술 공모전」 입찰 공고" }
+    ]);
+  });
+
+  it("normalizes Markdown table rows and drops delimiter rows", () => {
+    expect(normalizeLinesToBlocks(["| 구분 | 기준 |", "| --- | --- |", "| 달성 | 목표 달성 |"])).toEqual([
+      { id: "block-1", role: "tableRow", text: "구분\t기준" },
+      { id: "block-2", role: "tableRow", text: "달성\t목표 달성" }
+    ]);
+  });
+
+  it("does not infer image blocks from plain text image-looking lines", () => {
+    expect(normalizeLinesToBlocks(["![alt](image.png)"])).toEqual([
+      { id: "block-1", role: "body", text: "![alt](image.png)" }
     ]);
   });
 });
