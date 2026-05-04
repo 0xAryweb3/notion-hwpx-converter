@@ -51,6 +51,7 @@ const sectionNamespace =
   'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" ' +
   'xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" ' +
   'xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"';
+const pageBottomHeadroomReserve = 2000;
 
 export function generateHwpx(template: HwpxTemplate, blocks: DocumentBlock[], options: GenerateHwpxOptions = {}): Uint8Array {
   const files: Record<string, Uint8Array> = {};
@@ -251,6 +252,12 @@ function renderRun(style: HwpxParagraphStyle, content: string): string {
   return `<hp:run charPrIDRef="${style.charPrIDRef}">${content}</hp:run>`;
 }
 
+function renderPageBreakParagraph(style: HwpxParagraphStyle, index: number): string {
+  return `<hp:p id="${index}" paraPrIDRef="${style.paraPrIDRef}" styleIDRef="${style.styleIDRef}" pageBreak="1" columnBreak="0" merged="0">` +
+    `${renderRun(style, "")}` +
+    `</hp:p>`;
+}
+
 interface LineLayoutState {
   currentVertPos: number;
   pageContentHeight: number;
@@ -343,8 +350,12 @@ function renderLineSegArray(
   const lines: string[] = [];
   const tentativeStartVertPos = layoutState.currentVertPos + paragraphMargins.prev;
   const lineBlockHeight = lineCount * lineStep;
+  const tentativeBottom = tentativeStartVertPos + lineBlockHeight;
   const startsNewPage = layoutState.currentVertPos > 0 &&
-    tentativeStartVertPos + lineBlockHeight > layoutState.pageContentHeight;
+    (
+      tentativeBottom > layoutState.pageContentHeight ||
+      tentativeBottom > layoutState.pageContentHeight - pageBottomHeadroomReserve
+    );
   const startVertPos = startsNewPage ? 0 : tentativeStartVertPos;
 
   layoutState.lastParagraphPageBreak = startsNewPage;
@@ -714,6 +725,12 @@ function renderAssignedHybridBodyBlocks(
       : undefined;
 
     if (structureTable !== undefined) {
+      if (shouldStartTableOnNewPage(layoutState, structureTable.xml)) {
+        xml += renderPageBreakParagraph(assignment.style, paragraphIndex);
+        resetLayoutStateToNewPage(layoutState);
+        paragraphIndex += 1;
+      }
+
       xml += renderStructureTable(structureTable, assignment.text, tableStyleContext);
       reserveTableLayoutSpace(layoutState, structureTable.xml);
       paragraphIndex += 1;
@@ -1766,12 +1783,32 @@ function sanitizeGeneratedTableParagraphStyles(tableXml: string, tableStyleConte
   });
 }
 
+function shouldStartTableOnNewPage(layoutState: LineLayoutState, tableXml: string): boolean {
+  const tentativeBottom = layoutState.currentVertPos + readTableLayoutReserveHeight(layoutState, tableXml);
+
+  return layoutState.currentVertPos > 0 &&
+    (
+      tentativeBottom > layoutState.pageContentHeight ||
+      tentativeBottom > layoutState.pageContentHeight - pageBottomHeadroomReserve
+    );
+}
+
+function resetLayoutStateToNewPage(layoutState: LineLayoutState): void {
+  layoutState.currentVertPos = 0;
+  layoutState.lastParagraphPageBreak = false;
+}
+
 function reserveTableLayoutSpace(layoutState: LineLayoutState, tableXml: string): void {
+  layoutState.currentVertPos += readTableLayoutReserveHeight(layoutState, tableXml);
+  layoutState.lastParagraphPageBreak = false;
+}
+
+function readTableLayoutReserveHeight(layoutState: LineLayoutState, tableXml: string): number {
   const height = readTableHeight(tableXml) ??
     layoutState.defaultMetrics.textHeight + layoutState.defaultMetrics.spacing;
   const lineStep = layoutState.defaultMetrics.textHeight + layoutState.defaultMetrics.spacing;
-  layoutState.currentVertPos += Math.max(height, lineStep) + Math.floor(lineStep / 2);
-  layoutState.lastParagraphPageBreak = false;
+
+  return Math.max(height, lineStep) + Math.floor(lineStep / 2);
 }
 
 function readTableHeight(tableXml: string): number | null {

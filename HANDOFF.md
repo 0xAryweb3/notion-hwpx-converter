@@ -3,14 +3,15 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last commit: `5ba319e [fix] sanitize generated heading paragraph styles`
+Last commit: `[fix] avoid tight generated pages`
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
 - `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
+- `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree currently contains a quality-report/UI traceability fix, its regression test, a new plan, this audit, and this handoff update. External regenerated artifacts were written under `/Users/hyeon/Desktop/hwp-result/`; they are not tracked.
-Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and direct Hancom screenshot capture now works after the user granted screen-recording permission. However app-control automation through `System Events` is still denied, so repeatable navigation/full-document Hancom screenshots are limited. Do not mark the active goal complete until later-page Hancom visual review and broader sample coverage are done.
+Working tree currently contains a visual-dogfood page-bottom-headroom/table-geometry audit, renderer pagination guardrails, regression tests, docs updates, and regenerated external artifacts under `/Users/hyeon/Desktop/hwp-result/`; external artifacts are not tracked.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and direct Hancom screenshot capture now works after the user granted screen-recording permission. However app-control automation through `System Events` is still denied, and a low-level PageDown attempt produced black screenshots, so repeatable later-page Hancom visual review is still limited. Do not mark the active goal complete until later-page Hancom visual review and broader sample coverage are done.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -49,6 +50,9 @@ Implemented:
 - Generated-output audit now reports `non-bullet-auto-heading` and includes `badNonBulletAutoHeadingCount` so this Hancom-only bullet regression fails before manual review.
 - The quality report now exposes assignment `textColor`, `indentKind`, `indentValue`, and user-facing `indentLabel`, so bullet rows show `글머리 들여쓰기` instead of misleading negative `내어쓰기` values.
 - The UI assignment report now shows all mapping rows in a scrollable table and marks `structureTable` rows with `· 표`, so later Notion sections such as `울산 소식`, `센터 소식`, and news titles are inspectable.
+- Visual dogfood now reports `page-bottom-tight-risk` and `pageBottomTightRiskCount` when a page has less than `2000hu` of bottom headroom, because Hancom may reflow that page into an extra page.
+- Visual dogfood now includes top/bottom geometry for generated tables in page-overflow and page-bottom-headroom checks.
+- The renderer now moves generated paragraphs and generated structure tables to a new page when they would leave less than `2000hu` of page-bottom headroom.
 
 ## What Was Tried
 - 2026-05-04 continuation:
@@ -59,6 +63,13 @@ Implemented:
   - The regenerated 7-8 report shows `울산시, 기후위기 대응 중장기 전략 수립 착수`, `센터 소식`, and `울산‘탄소영감(Net-Zero) 실험실’프로젝트 참여자 모집` as black structure-table assignments, while `울산 소식` remains a black plain category heading because the 7-8 sample encodes that label as a paragraph rather than a table.
   - After the user granted screen-recording permission, `screencapture` can now see Hancom. A fresh-open copy, `/Users/hyeon/Desktop/hwp-result/current-7-8-fresh-open.hwpx`, rendered the first page in Hancom with black text, title tables, and indented round bullets. `System Events` automation still returns `-1743`, so app-controlled page navigation is still unavailable.
   - Verification after the quality-report fix: `npm test` passed 15 files / 120 tests, `npm run build` passed, and `git diff --check` passed.
+  - Investigated why Hancom showed `current-7-8.hwpx` as three pages while visual dogfood reported two. XML has only one explicit `pageBreak="1"`, but page 1 content ends at `73345hu` with page content height `74266hu`, leaving only `921hu`; Hancom reflow can push the page over and create an extra page before the forced break.
+  - Added `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`.
+  - Added a RED/GREEN regression in `src/test/hwpx-visual-dogfood.test.ts` and updated `src/features/hwpx/visualDogfood.ts` to report warning code `page-bottom-tight-risk`.
+  - Code review found the first headroom check ignored table geometry. Added table top/bottom extraction and table overflow/headroom regressions.
+  - Updated `src/features/hwpx/render.ts` so generated paragraphs and generated one-cell structure tables start on a new page when they would overflow or leave less than `2000hu` of bottom headroom.
+  - Regenerated current BRIEF outputs again. `current-7-8.json`, `current-9-10.json`, and `current-6-7.json` now all report score 100, 0 output-audit errors/warnings, 0 visual-dogfood errors/warnings, `pageOverflowRiskCount: 0`, `pageBottomTightRiskCount: 0`, and 0 missing source text.
+  - Reopened `/Users/hyeon/Desktop/hwp-result/current-7-8-verified.hwpx` in Hancom and captured `/tmp/current-7-8-verified-hancom.png`. The first visible page shows black text, preserved title tables, and indented round bullets.
   - User reported that Hancom still showed indentation where it should not. Screenshot inspection and XML comparison showed the generated text for `울산 소식` did not include `○`, but its paragraph style `paraPrIDRef="64"` had `<hh:heading type="BULLET">`, so Hancom drew an automatic bullet.
   - Added `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`.
   - Added RED tests in `src/test/hwpx-output-audit.test.ts` and `src/test/hwpx-render.test.ts` for non-bullet generated text inheriting automatic Hancom bullet/heading metadata.
@@ -262,7 +273,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Review and commit the quality-report traceability fix, then use Hancom screenshots/manual navigation to inspect later pages containing `울산 소식`, `센터 소식`, and the generated news-title structure tables.
+Commit the page-bottom-headroom visual-dogfood fix, then decide whether to rebalance generated layout spacing/page breaks so 7-8 and 6-7 no longer risk Hancom adding an extra page.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.

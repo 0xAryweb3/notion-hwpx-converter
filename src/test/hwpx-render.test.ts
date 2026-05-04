@@ -195,6 +195,24 @@ describe("HWPX rendering", () => {
     expect(pageBreakParagraphVertPositions(sectionXml).some((vertPos) => vertPos <= 2000)).toBe(true);
   });
 
+  it("moves generated paragraphs to the next page when they would leave too little bottom headroom", () => {
+    const template = loadHwpxTemplate(createPaginationTemplateZip());
+    const output = unzipSync(
+      generateHwpx(
+        template,
+        Array.from({ length: 5 }, (_, index) => ({
+          id: `block-${index + 1}`,
+          role: "body" as const,
+          text: `본문 ${index + 1}`
+        }))
+      )
+    );
+    const fifthParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "본문 5");
+
+    expect(fifthParagraph).toContain('pageBreak="1"');
+    expect(firstLineVertPos(fifthParagraph)).toBeLessThanOrEqual(2000);
+  });
+
   it("uses the full section page height when paginating generated body after a title region", () => {
     const template = loadHwpxTemplate(createTitleRegionPaginationTemplateZip());
     const output = unzipSync(
@@ -209,6 +227,26 @@ describe("HWPX rendering", () => {
 
     expect(sectionXml).toContain('pageBreak="1"');
     expect(pageBreakParagraphVertPositions(sectionXml).some((vertPos) => vertPos <= 2000)).toBe(true);
+  });
+
+  it("starts generated structure tables on a new page when they do not fit the remaining body height", () => {
+    const template = loadHwpxTemplate(createStructureTablePaginationTemplateZip());
+    const output = unzipSync(
+      generateHwpx(template, [
+        { id: "block-1", role: "title", text: "울산광역시 탄소중립지원센터 BRIEF 통권 제9호(2026년 5월)" },
+        { id: "block-2", role: "body", text: "2026년 울산광역시 탄소중립지원센터 사업 소개" },
+        { id: "block-3", role: "section", text: "1. 새 본문 제목" }
+      ])
+    );
+    const sectionXml = strFromU8(output["Contents/section0.xml"]);
+    const tableIndex = sectionXml.indexOf('id="lead-heading-table"');
+    const spacerStart = sectionXml.lastIndexOf("<hp:p", tableIndex);
+    const spacerParagraph = sectionXml.slice(spacerStart, tableIndex);
+
+    expect(tableIndex).toBeGreaterThan(0);
+    expect(spacerParagraph).toContain('pageBreak="1"');
+    expect(spacerParagraph).not.toContain("<hp:t>2026년 울산광역시 탄소중립지원센터 사업 소개</hp:t>");
+    expectValidXml(sectionXml);
   });
 
   it("starts generated body after the title region when no body template line exists", () => {
@@ -1252,6 +1290,14 @@ function createStructureTableTemplateZip(): Uint8Array {
 </hs:sec>`)),
     "Preview/PrvText.txt": new Uint8Array(strToU8("old preview text"))
   });
+}
+
+function createStructureTablePaginationTemplateZip(): Uint8Array {
+  return withSectionReplacement(
+    createStructureTableTemplateZip(),
+    '<hp:run charPrIDRef="81"><hp:t>울산광역시 탄소중립지원센터 BRIEF</hp:t></hp:run>',
+    '<hp:run charPrIDRef="81"><hp:secPr id="" textDirection="HORIZONTAL"><hp:pagePr landscape="NARROWLY" width="50000" height="5000"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="0" bottom="0"/></hp:pagePr></hp:secPr><hp:t>울산광역시 탄소중립지원센터 BRIEF</hp:t></hp:run>'
+  );
 }
 
 function createParagraphSpacingTemplateZip(): Uint8Array {

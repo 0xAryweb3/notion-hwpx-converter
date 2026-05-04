@@ -134,6 +134,64 @@ describe("HWPX visual dogfood audit", () => {
     }));
     expect(report.summary.justifySpacingRiskCount).toBe(1);
   });
+
+  it("warns when a page has too little bottom headroom for Hancom reflow", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="page" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:secPr id=""><hp:pagePr landscape="WIDELY" width="50000" height="10000"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="0" bottom="0"/></hp:pagePr></hp:secPr></hp:run>
+  </hp:p>
+  ${paragraph("tight-bottom", "1", "3", "하단 여유가 너무 적은 문단", 7700)}
+</hs:sec>`);
+
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: "page-bottom-tight-risk",
+      severity: "warning"
+    }));
+    expect(report.summary.pageBottomTightRiskCount).toBe(1);
+  });
+
+  it("includes table geometry when checking page bottom headroom", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="page" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:secPr id=""><hp:pagePr landscape="WIDELY" width="50000" height="10000"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="0" bottom="0"/></hp:pagePr></hp:secPr></hp:run>
+  </hp:p>
+  ${paragraph("before-table", "1", "3", "표 앞 문단", 6000)}
+  <hp:tbl rowCnt="1" colCnt="1">
+    <hp:sz width="20000" height="2300"/>
+    <hp:tr><hp:tc><hp:subList>${paragraph("table-cell", "1", "3", "하단 표", 0)}</hp:subList></hp:tc></hp:tr>
+  </hp:tbl>
+</hs:sec>`);
+
+    expect(report.tables[0]).toMatchObject({ text: "하단 표", top: 7600, bottom: 9900 });
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: "page-bottom-tight-risk",
+      severity: "warning",
+      detail: expect.objectContaining({ pageBottom: 9900 })
+    }));
+  });
+
+  it("includes table geometry when checking page overflow", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="page" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:secPr id=""><hp:pagePr landscape="WIDELY" width="50000" height="10000"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="0" bottom="0"/></hp:pagePr></hp:secPr></hp:run>
+  </hp:p>
+  ${paragraph("before-table", "1", "3", "표 앞 문단", 7600)}
+  <hp:tbl rowCnt="1" colCnt="1">
+    <hp:sz width="20000" height="2300"/>
+    <hp:tr><hp:tc><hp:subList>${paragraph("table-cell", "1", "3", "넘치는 표", 0)}</hp:subList></hp:tc></hp:tr>
+  </hp:tbl>
+</hs:sec>`);
+
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: "page-overflow-risk",
+      severity: "warning",
+      text: "넘치는 표"
+    }));
+    expect(report.summary.pageOverflowRiskCount).toBe(1);
+  });
 });
 
 function createHeader(): string {

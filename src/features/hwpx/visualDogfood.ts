@@ -48,6 +48,8 @@ export interface VisualDogfoodTable {
   colCount: number;
   width: number;
   height: number;
+  top: number;
+  bottom: number;
   insideAnchor: boolean;
   pageIndex: number;
 }
@@ -68,6 +70,7 @@ export interface VisualDogfoodReport {
     missingBlankAfterBulletGroupCount: number;
     verticalOverlapRiskCount: number;
     pageOverflowRiskCount: number;
+    pageBottomTightRiskCount: number;
     pageCount: number;
     pageContentHeight: number;
   };
@@ -85,6 +88,7 @@ const emptyMargin: VisualDogfoodParagraphMargin = {
   prev: 0,
   next: 0
 };
+const pageBottomHeadroomWarningThreshold = 2000;
 
 export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string): VisualDogfoodReport {
   const characterStyles = readCharacterStyles(headerXml);
@@ -93,7 +97,7 @@ export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string):
   const pageContentHeight = readPageContentHeight(sectionXml);
   const paragraphs = extractVisualParagraphs(sectionXml, characterStyles, paragraphMargins, paragraphAligns);
   const tables = extractVisualTables(sectionXml);
-  const issues = collectIssues(paragraphs, pageContentHeight);
+  const issues = collectIssues(paragraphs, tables, pageContentHeight);
 
   return {
     paragraphs,
@@ -111,6 +115,7 @@ export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string):
       missingBlankAfterBulletGroupCount: issues.filter((issue) => issue.code === "missing-blank-after-bullet-group").length,
       verticalOverlapRiskCount: issues.filter((issue) => issue.code === "vertical-overlap-risk").length,
       pageOverflowRiskCount: issues.filter((issue) => issue.code === "page-overflow-risk").length,
+      pageBottomTightRiskCount: issues.filter((issue) => issue.code === "page-bottom-tight-risk").length,
       pageCount: Math.max(1, ...paragraphs.map((paragraph) => paragraph.pageIndex + 1)),
       pageContentHeight
     }
@@ -226,7 +231,11 @@ function renderTablePanel(
   return cards.join("");
 }
 
-function collectIssues(paragraphs: VisualDogfoodParagraph[], pageContentHeight: number): VisualDogfoodIssue[] {
+function collectIssues(
+  paragraphs: VisualDogfoodParagraph[],
+  tables: VisualDogfoodTable[],
+  pageContentHeight: number
+): VisualDogfoodIssue[] {
   const issues: VisualDogfoodIssue[] = [];
 
   for (const paragraph of paragraphs) {
@@ -357,7 +366,60 @@ function collectIssues(paragraphs: VisualDogfoodParagraph[], pageContentHeight: 
     }
   }
 
+  for (const table of tables.filter((item) => item.text.trim().length > 0)) {
+    if (table.bottom > pageContentHeight) {
+      issues.push({
+        severity: "warning",
+        code: "page-overflow-risk",
+        message: "A table box exceeds the page content height.",
+        text: table.text.trim(),
+        detail: {
+          bottom: table.bottom,
+          pageContentHeight,
+          pageIndex: table.pageIndex,
+          tableIndex: table.index
+        }
+      });
+    }
+  }
+
+  for (const [pageIndex, pageBottom] of readPageBottoms(nonEmptyOutsideTable, tables)) {
+    const headroom = pageContentHeight - pageBottom;
+
+    if (headroom >= 0 && headroom < pageBottomHeadroomWarningThreshold) {
+      issues.push({
+        severity: "warning",
+        code: "page-bottom-tight-risk",
+        message: "A page has very little bottom headroom, so Hancom font/table reflow may push content to an extra page.",
+        detail: { pageIndex, pageBottom, pageContentHeight, headroom }
+      });
+    }
+  }
+
   return issues;
+}
+
+function readPageBottoms(
+  paragraphs: VisualDogfoodParagraph[],
+  tables: VisualDogfoodTable[]
+): Map<number, number> {
+  const pageBottoms = new Map<number, number>();
+
+  for (const paragraph of paragraphs) {
+    pageBottoms.set(
+      paragraph.pageIndex,
+      Math.max(pageBottoms.get(paragraph.pageIndex) ?? 0, paragraphBottom(paragraph))
+    );
+  }
+
+  for (const table of tables) {
+    pageBottoms.set(
+      table.pageIndex,
+      Math.max(pageBottoms.get(table.pageIndex) ?? 0, table.bottom)
+    );
+  }
+
+  return pageBottoms;
 }
 
 function findNextMeaningfulParagraphIndex(
@@ -471,6 +533,7 @@ function extractVisualTables(sectionXml: string): VisualDogfoodTable[] {
   const blocks = readTopLevelBlocks(contentXml);
   const tables: VisualDogfoodTable[] = [];
   let pageIndex = 0;
+  const flowBottomByPage = new Map<number, number>();
 
   for (const block of blocks) {
     if (block.type === "hp:p" && readXmlAttribute(block.attrs, "pageBreak") === "1") {
@@ -478,12 +541,31 @@ function extractVisualTables(sectionXml: string): VisualDogfoodTable[] {
     }
 
     if (block.type === "hp:tbl") {
-      tables.push(createVisualTable(block.xml, tables.length, false, pageIndex));
+      const top = Math.max(readPageFlowBottom(flowBottomByPage, pageIndex), readTableVertOffset(block.xml));
+      const table = createVisualTable(block.xml, tables.length, false, pageIndex, top);
+      tables.push(table);
+      updatePageFlowBottom(flowBottomByPage, pageIndex, table.bottom);
       continue;
     }
 
+    const directXml = removeElements(block.xml, "hp:tbl");
+    const directBounds = readLineBounds(extractLines(directXml));
+    const anchorTop = directBounds?.top ?? readPageFlowBottom(flowBottomByPage, pageIndex);
+
     for (const tableXml of extractElementXmls(block.xml, "hp:tbl")) {
-      tables.push(createVisualTable(tableXml, tables.length, true, pageIndex));
+      const table = createVisualTable(
+        tableXml,
+        tables.length,
+        true,
+        pageIndex,
+        anchorTop + readTableVertOffset(tableXml)
+      );
+      tables.push(table);
+      updatePageFlowBottom(flowBottomByPage, pageIndex, table.bottom);
+    }
+
+    if (directBounds !== null) {
+      updatePageFlowBottom(flowBottomByPage, pageIndex, directBounds.bottom);
     }
   }
 
@@ -494,10 +576,14 @@ function createVisualTable(
   xml: string,
   index: number,
   insideAnchor: boolean,
-  pageIndex: number
+  pageIndex: number,
+  top: number
 ): VisualDogfoodTable {
   const attrs = xml.match(/^<hp:tbl\b([^>]*)>/)?.[1] ?? "";
   const sizeAttrs = xml.match(/<hp:sz\b([^>]*)\/>/)?.[1] ?? "";
+  const height = readNumberAttribute(sizeAttrs, "height", 0);
+  const outMargin = readTableOutMargin(xml);
+  const bottom = top + height + outMargin.top + outMargin.bottom;
 
   return {
     index,
@@ -505,9 +591,49 @@ function createVisualTable(
     rowCount: readNumberAttribute(attrs, "rowCnt", countTableRows(xml)),
     colCount: readNumberAttribute(attrs, "colCnt", countTableColumns(xml)),
     width: readNumberAttribute(sizeAttrs, "width", 0),
-    height: readNumberAttribute(sizeAttrs, "height", 0),
+    height,
+    top,
+    bottom,
     insideAnchor,
     pageIndex
+  };
+}
+
+function readPageFlowBottom(flowBottomByPage: Map<number, number>, pageIndex: number): number {
+  return flowBottomByPage.get(pageIndex) ?? 0;
+}
+
+function updatePageFlowBottom(
+  flowBottomByPage: Map<number, number>,
+  pageIndex: number,
+  bottom: number
+): void {
+  flowBottomByPage.set(pageIndex, Math.max(readPageFlowBottom(flowBottomByPage, pageIndex), bottom));
+}
+
+function readLineBounds(lines: VisualDogfoodLine[]): { top: number; bottom: number } | null {
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return {
+    top: Math.min(...lines.map((line) => line.vertPos)),
+    bottom: Math.max(...lines.map((line) => line.vertPos + line.textHeight + line.spacing))
+  };
+}
+
+function readTableVertOffset(tableXml: string): number {
+  const posAttrs = tableXml.match(/<hp:pos\b([^>]*)\/>/)?.[1] ?? "";
+
+  return readNumberAttribute(posAttrs, "vertOffset", 0);
+}
+
+function readTableOutMargin(tableXml: string): { top: number; bottom: number } {
+  const marginAttrs = tableXml.match(/<hp:outMargin\b([^>]*)\/>/)?.[1] ?? "";
+
+  return {
+    top: readNumberAttribute(marginAttrs, "top", 0),
+    bottom: readNumberAttribute(marginAttrs, "bottom", 0)
   };
 }
 
