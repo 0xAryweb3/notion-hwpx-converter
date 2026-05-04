@@ -102,6 +102,7 @@ async function main(): Promise<void> {
     badBulletIndentCount: outputAudit.summary.badBulletIndentCount,
     badNonBulletIndentCount: outputAudit.summary.badNonBulletIndentCount,
     badBulletStyleIndentCount: outputAudit.summary.badBulletStyleIndentCount,
+    badNonBulletAutoHeadingCount: outputAudit.summary.badNonBulletAutoHeadingCount,
     missingSourceTextCount: outputAudit.summary.missingSourceTextCount
   }, null, 2));
 }

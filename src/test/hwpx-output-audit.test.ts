@@ -103,6 +103,28 @@ describe("generated HWPX output audit", () => {
     }));
   });
 
+  it("fails when non-bullet generated text uses an automatic bullet heading style", () => {
+    const audit = auditGeneratedHwpx({
+      blocks: [{ id: "block-1", role: "body", text: "울산 소식" }],
+      assignments: [{
+        ...paragraphAssignment("assignment-1", "울산 소식"),
+        grammarRole: "categoryHeading"
+      }],
+      sectionXml: sectionXml([
+        paragraphXml("p1", "64", "1", "울산 소식", [0])
+      ]),
+      headerXml: headerXml({ headingParaPrTypes: { "64": "BULLET" } }),
+      titleTableCount: 0
+    });
+
+    expect(audit.passed).toBe(false);
+    expect(audit.summary.badNonBulletAutoHeadingCount).toBe(1);
+    expect(audit.issues).toContainEqual(expect.objectContaining({
+      severity: "error",
+      code: "non-bullet-auto-heading"
+    }));
+  });
+
   it("fails when generated bullet paragraphs still use a negative-intent paragraph style", () => {
     const audit = auditGeneratedHwpx({
       blocks: [{ id: "block-1", role: "dashItem", text: "- 글머리" }],
@@ -317,13 +339,15 @@ function sectionPropertiesParagraphXml(options: { pageHeight: number; top: numbe
   return `<hp:p id="secpr" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="1"><hp:secPr id="" textDirection="HORIZONTAL"><hp:pagePr landscape="NARROWLY" width="50000" height="${options.pageHeight}"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="${options.top}" bottom="${options.bottom}"/></hp:pagePr></hp:secPr><hp:t/></hp:run><hp:linesegarray><hp:lineseg textpos="0" vertpos="0" vertsize="1000" textheight="1000" baseline="850" spacing="600" horzpos="0" horzsize="42520" flags="393216"/></hp:linesegarray></hp:p>`;
 }
 
-function headerXml(options: { redCharPrIds?: string[]; hangingParaPrIds?: string[]; charColors?: Record<string, string> } = {}): string {
+function headerXml(options: { redCharPrIds?: string[]; hangingParaPrIds?: string[]; headingParaPrTypes?: Record<string, string>; charColors?: Record<string, string> } = {}): string {
   const redIds = new Set(options.redCharPrIds ?? []);
   const colorIds = Object.keys(options.charColors ?? {});
   const ids = new Set(["1", ...redIds, ...colorIds]);
   const hangingParaPrIds = new Set(options.hangingParaPrIds ?? []);
+  const headingParaPrTypes = options.headingParaPrTypes ?? {};
+  const paraPrIds = new Set(["1", ...hangingParaPrIds, ...Object.keys(headingParaPrTypes)]);
 
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core"><hh:charProperties itemCnt="${ids.size}">${Array.from(ids).map((id) => `<hh:charPr id="${id}" height="1000" textColor="${options.charColors?.[id] ?? (redIds.has(id) ? "#FF0000" : "#000000")}"><hh:fontRef hangul="0"/><hh:spacing hangul="0"/></hh:charPr>`).join("")}</hh:charProperties><hh:paraProperties itemCnt="${hangingParaPrIds.size + 1}"><hh:paraPr id="1"><hh:margin><hc:intent value="0"/></hh:margin></hh:paraPr>${Array.from(hangingParaPrIds).map((id) => `<hh:paraPr id="${id}"><hh:margin><hc:intent value="-1448"/></hh:margin></hh:paraPr>`).join("")}</hh:paraProperties></hh:head>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core"><hh:charProperties itemCnt="${ids.size}">${Array.from(ids).map((id) => `<hh:charPr id="${id}" height="1000" textColor="${options.charColors?.[id] ?? (redIds.has(id) ? "#FF0000" : "#000000")}"><hh:fontRef hangul="0"/><hh:spacing hangul="0"/></hh:charPr>`).join("")}</hh:charProperties><hh:paraProperties itemCnt="${paraPrIds.size}">${Array.from(paraPrIds).map((id) => `<hh:paraPr id="${id}">${headingParaPrTypes[id] === undefined ? "" : `<hh:heading type="${headingParaPrTypes[id]}" idRef="1" level="0"/>`}<hh:margin><hc:intent value="${hangingParaPrIds.has(id) ? "-1448" : "0"}"/></hh:margin></hh:paraPr>`).join("")}</hh:paraProperties></hh:head>`;
 }
 
 function escapeXml(text: string): string {

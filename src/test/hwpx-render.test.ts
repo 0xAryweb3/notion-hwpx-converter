@@ -346,6 +346,27 @@ describe("HWPX rendering", () => {
     expect(readHorizontalAlign(generatedParaPr)).toBe("LEFT");
   });
 
+  it("removes automatic Hancom heading metadata from generated non-bullet paragraphs", () => {
+    const template = loadHwpxTemplate(withHeaderReplacement(
+      createBulletTitleRegionTemplateZip(),
+      '<hh:align horizontal="JUSTIFY" vertical="BASELINE"/><hh:margin>',
+      '<hh:align horizontal="JUSTIFY" vertical="BASELINE"/><hh:heading type="BULLET" idRef="1" level="0"/><hh:margin>'
+    ));
+    const output = unzipSync(
+      generateHwpx(template, [
+        { id: "block-1", role: "title", text: "새 표지" },
+        { id: "block-2", role: "section", text: "1. 자동 글머리가 붙으면 안 되는 제목" }
+      ])
+    );
+    const headerXml = strFromU8(output["Contents/header.xml"]);
+    const generatedParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "1. 자동 글머리가 붙으면 안 되는 제목");
+    const generatedParaPrId = generatedParagraph.match(/paraPrIDRef="([^"]+)"/)?.[1] ?? "";
+    const generatedParaPr = headerXml.match(new RegExp(`<hh:paraPr\\b(?=[^>]*\\bid="${generatedParaPrId}")[\\s\\S]*?<\\/hh:paraPr>`))?.[0] ?? "";
+
+    expect(generatedParaPrId).not.toBe("1");
+    expect(readHeadingType(generatedParaPr)).toBe("NONE");
+  });
+
   it("keeps wrapped generated bullet continuation lines deeper than the bullet marker", () => {
     const template = loadHwpxTemplate(createBulletTitleRegionTemplateZip());
     const output = unzipSync(
@@ -677,6 +698,34 @@ describe("HWPX rendering", () => {
     expectValidXml(sectionXml);
   });
 
+  it("removes automatic Hancom heading metadata from generated structure table paragraphs", () => {
+    const template = loadHwpxTemplate(
+      withHeaderReplacement(
+        withHeaderReplacement(
+          createStructureTableTemplateZip(),
+          '<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head">',
+          '<hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core">'
+        ),
+        "</hh:head>",
+        '<hh:paraProperties itemCnt="1"><hh:paraPr id="72" tabPrIDRef="0"><hh:align horizontal="LEFT" vertical="BASELINE"/><hh:heading type="BULLET" idRef="1" level="0"/><hh:margin><hc:intent value="0"/><hc:left value="0"/><hc:right value="0"/><hc:prev value="0"/><hc:next value="0"/></hh:margin><hh:lineSpacing type="PERCENT" value="160"/></hh:paraPr></hh:paraProperties></hh:head>'
+      )
+    );
+    const output = unzipSync(
+      generateHwpx(template, [
+        { id: "block-1", role: "title", text: "울산광역시 탄소중립지원센터 BRIEF 통권 제9호(2026년 5월)" },
+        { id: "block-2", role: "body", text: "2026년 울산광역시 탄소중립지원센터 사업 소개" },
+        { id: "block-3", role: "section", text: "1. 새 본문 제목" }
+      ])
+    );
+    const headerXml = strFromU8(output["Contents/header.xml"]);
+    const structureTableParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "2026년 울산광역시 탄소중립지원센터 사업 소개");
+    const generatedParaPrId = structureTableParagraph.match(/paraPrIDRef="([^"]+)"/)?.[1] ?? "";
+    const generatedParaPr = headerXml.match(new RegExp(`<hh:paraPr\\b(?=[^>]*\\bid="${generatedParaPrId}")[\\s\\S]*?<\\/hh:paraPr>`))?.[0] ?? "";
+
+    expect(generatedParaPrId).not.toBe("72");
+    expect(readHeadingType(generatedParaPr)).toBe("NONE");
+  });
+
   it("splits very long generated body paragraphs before rendering", () => {
     const template = loadHwpxTemplate(createTableTemplateZip());
     const longText = Array.from(
@@ -890,6 +939,10 @@ function readMargin(paraPrXml: string, name: string): number {
 
 function readHorizontalAlign(paraPrXml: string): string | null {
   return paraPrXml.match(/<hh:align\b[^>]*\bhorizontal="([^"]+)"/)?.[1] ?? null;
+}
+
+function readHeadingType(paraPrXml: string): string | null {
+  return paraPrXml.match(/<hh:heading\b[^>]*\btype="([^"]+)"/)?.[1] ?? null;
 }
 
 function extractParagraphTextForTest(paragraphXml: string): string {

@@ -3,11 +3,11 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last commit before this handoff update: `f40806a docs: add codex goals session brief`
+Last commit before this handoff update: `5ef0216 [feat] add table-aware visual dogfood`
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
-Active plan: `docs/superpowers/plans/2026-05-04-table-aware-visual-dogfood.md`
-Working tree before the 2026-05-04 continuation had a dirty `HANDOFF.md` from the previous goal session. This continuation adds table-aware visual dogfood code/tests/docs and regenerated external preview artifacts under `/Users/hyeon/Desktop/hwp-result/visual/`.
-Known unresolved gap: XML-level audits and browser-rendered SVG dogfood previews pass on current code, but final Hancom visual rendering still needs direct manual review against the sample documents. Do not start another blind renderer rewrite until Hancom screenshots or concrete visual notes identify a remaining failure.
+Active plan: `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
+Working tree currently contains the auto-heading sanitizer fix, tests, this plan, and the handoff update. External regenerated artifacts were written under `/Users/hyeon/Desktop/hwp-result/` and `/Users/hyeon/Desktop/hwp-result/visual/`; they are not tracked.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, but direct Hancom screenshot capture is still blocked because `Hancom Office HWP Viewer` opens outside the captured desktop and Apple Events access to activate/read its windows is denied. Do not start another blind renderer rewrite until Hancom screenshots or concrete visual notes identify a remaining failure.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -42,9 +42,30 @@ Implemented:
 - Generated wrapped line positions now prefer whitespace boundaries, reducing ugly mid-word breaks in the dogfood preview and HWPX line-cache hints.
 - Generated body paragraph styles now clone `JUSTIFY` paragraph styles into output-only `LEFT` paragraph styles. Character spacing remains sample-derived; this specifically prevents Hancom from stretching spaces between word groups in generated body text.
 - Visual dogfood audit now reports `justify-spacing-risk` when a generated top-level paragraph still uses `JUSTIFY` with spaced text.
+- Generated paragraph styles now clone any sample `hh:heading` metadata into output-only plain paragraph styles with `type="NONE"`, preventing Hancom from drawing automatic bullets on generated headings such as `울산 소식`.
+- Generated-output audit now reports `non-bullet-auto-heading` and includes `badNonBulletAutoHeadingCount` so this Hancom-only bullet regression fails before manual review.
 
 ## What Was Tried
 - 2026-05-04 continuation:
+  - User reported that Hancom still showed indentation where it should not. Screenshot inspection and XML comparison showed the generated text for `울산 소식` did not include `○`, but its paragraph style `paraPrIDRef="64"` had `<hh:heading type="BULLET">`, so Hancom drew an automatic bullet.
+  - Added `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`.
+  - Added RED tests in `src/test/hwpx-output-audit.test.ts` and `src/test/hwpx-render.test.ts` for non-bullet generated text inheriting automatic Hancom bullet/heading metadata.
+  - Updated `src/features/hwpx/render.ts` so generated paragraph styles are cloned to remove automatic heading metadata, and so bullet/left-align clones also emit plain `hh:heading type="NONE"` metadata.
+  - Updated `src/features/hwpx/outputAudit.ts` with `badNonBulletAutoHeadingCount` and `non-bullet-auto-heading` errors.
+  - Updated `helper/generate-local.ts` console output to show `badNonBulletAutoHeadingCount`.
+  - Code review found that the first sanitizer missed generated one-cell structure tables because `renderStructureTable()` cloned template table XML directly. Added a structure-table regression and sanitized `paraPrIDRef` values inside generated structure tables as well.
+  - Regenerated current BRIEF outputs from the public Notion URL:
+    - `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` / `.json`: score 100, passed true, 0 errors/warnings, `badNonBulletAutoHeadingCount: 0`, `nonBlackGeneratedRunCount: 0`, 8 output tables, 6 body structure tables, 0 missing source text.
+    - `/Users/hyeon/Desktop/hwp-result/current-9-10.hwpx` / `.json`: score 100, passed true, 0 errors/warnings, `badNonBulletAutoHeadingCount: 0`, `nonBlackGeneratedRunCount: 0`, 7 output tables, 5 body structure tables, 0 missing source text.
+    - `/Users/hyeon/Desktop/hwp-result/current-6-7.hwpx` / `.json`: score 100, passed true, 0 errors/warnings, `badNonBulletAutoHeadingCount: 0`, `nonBlackGeneratedRunCount: 0`, 8 output tables, 7 body structure tables, 0 missing source text.
+  - XML inspection after regeneration showed `전국 소식`, `울산 소식`, `센터 소식`, and `울산시, 기후위기 대응 중장기 전략 수립 착수` use black character styles and `heading=NONE`; `울산시, 기후위기 대응 중장기 전략 수립 착수` is in a one-cell structure table.
+  - Sample comparison showed `울산 소식` itself is not a table motif in the supplied 7-8, 9-10, or 6-7 samples; the news title below it is the structure-table content.
+  - Regenerated visual dogfood previews/reports:
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-7-8.after-auto-heading.svg` / `.svg.png` / `.json`: 0 errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-9-10.after-auto-heading.svg` / `.svg.png` / `.json`: 0 errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-6-7.after-auto-heading.svg` / `.svg.png` / `.json`: 0 errors/warnings.
+  - Attempted Hancom capture with `open -a 'Hancom Office HWP Viewer'`, `open -n -a`, `screencapture`, and AppleScript activation. `screencapture` works, but the viewer window did not appear on the captured desktop, and AppleScript access failed with `System Events` permission denied / Hancom AppleEvent timeout.
+  - Verification after the auto-heading fix and structure-table review fix: `npm test` passed 15 files / 119 tests, `npm run build` passed, and `git diff --check` passed.
   - Confirmed the current branch is `feat/codex-goals-workflow`.
   - Confirmed `/private/tmp/hwp-result/current-7-8.hwpx`, `current-9-10.hwpx`, and `current-6-7.hwpx` plus JSON reports exist from the previous goal-session run.
   - Confirmed the machine has `Hancom Office HWP Viewer.app`, but `qlmanage` thumbnail generation for HWPX hangs, so it is not usable as an automated Hancom proxy.
@@ -229,7 +250,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Open either the current generated files in `/private/tmp/hwp-result/current-7-8.hwpx`, `/private/tmp/hwp-result/current-9-10.hwpx`, and `/private/tmp/hwp-result/current-6-7.hwpx`, or the existing Desktop copies in `/Users/hyeon/Desktop/hwp-result/`, in Hancom and compare them against the source samples. Also inspect the table-aware previews in `/Users/hyeon/Desktop/hwp-result/visual/current-*.table-aware.png`. The next concrete action is to capture Hancom screenshots or specific visual notes, then implement only the gaps that real Hancom rendering proves.
+Commit the auto-heading sanitizer fix, request code review, then have the user open `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` in Hancom and confirm the `울산 소식` automatic bullet is gone. The next concrete action after review is to address any remaining Hancom-only visual issue the user can see directly.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.

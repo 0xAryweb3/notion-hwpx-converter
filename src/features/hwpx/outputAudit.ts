@@ -27,6 +27,7 @@ export interface GeneratedOutputAuditSummary {
   badBulletIndentCount: number;
   badNonBulletIndentCount: number;
   badBulletStyleIndentCount: number;
+  badNonBulletAutoHeadingCount: number;
   missingSourceTextCount: number;
   overflowRiskCount: number;
   pageOverflowCount: number;
@@ -81,6 +82,7 @@ export function auditGeneratedHwpx(input: GeneratedOutputAuditInput): GeneratedO
   const redCharPrIDs = readRedCharPrIds(input.headerXml);
   const charColors = readCharColors(input.headerXml);
   const paragraphIntents = readParagraphIntents(input.headerXml);
+  const paragraphHeadingTypes = readParagraphHeadingTypes(input.headerXml);
   const redRunCount = paragraphs.reduce(
     (sum, paragraph) => sum + paragraph.charPrIDs.filter((id) => redCharPrIDs.has(id)).length,
     0
@@ -94,6 +96,7 @@ export function auditGeneratedHwpx(input: GeneratedOutputAuditInput): GeneratedO
   const badBulletIndentCount = countBadBulletIndents(paragraphs);
   const badNonBulletIndentCount = countBadNonBulletIndents(paragraphs, paragraphIntents);
   const badBulletStyleIndentCount = countBadBulletStyleIndents(paragraphs, paragraphIntents);
+  const badNonBulletAutoHeadingCount = countBadNonBulletAutoHeadings(paragraphs, input.assignments, paragraphHeadingTypes);
   const missingAssignments = input.assignments.filter((assignment) =>
     assignment.type !== "image" &&
     coverageTextForAssignment(assignment).trim().length > 0 &&
@@ -173,6 +176,15 @@ export function auditGeneratedHwpx(input: GeneratedOutputAuditInput): GeneratedO
     });
   }
 
+  if (badNonBulletAutoHeadingCount > 0) {
+    issues.push({
+      severity: "error",
+      code: "non-bullet-auto-heading",
+      message: "글머리 없는 생성 문단에 한글 자동 글머리/개요 문단 스타일이 사용되었습니다.",
+      detail: { badNonBulletAutoHeadingCount }
+    });
+  }
+
   for (const assignment of missingAssignments) {
     issues.push({
       severity: "error",
@@ -228,6 +240,7 @@ export function auditGeneratedHwpx(input: GeneratedOutputAuditInput): GeneratedO
     badBulletIndentCount,
     badNonBulletIndentCount,
     badBulletStyleIndentCount,
+    badNonBulletAutoHeadingCount,
     missingSourceTextCount: missingAssignments.length,
     overflowRiskCount: overflowRisks.length,
     pageOverflowCount: pageOverflows.length
@@ -289,6 +302,36 @@ function countBadBulletStyleIndents(paragraphs: OutputParagraph[], paragraphInte
     isBulletText(paragraph.text) &&
     (paragraphIntents.get(paragraph.paraPrIDRef) ?? 0) < 0
   ).length;
+}
+
+function countBadNonBulletAutoHeadings(
+  paragraphs: OutputParagraph[],
+  assignments: HwpxStyleAssignment[],
+  paragraphHeadingTypes: Map<string, string>
+): number {
+  const generatedNonBulletTexts = new Set(assignments
+    .filter((assignment) =>
+      assignment.type === "paragraph" &&
+      assignment.grammarRole !== "bullet" &&
+      assignment.grammarRole !== "newsBullet" &&
+      coverageTextForAssignment(assignment).trim().length > 0
+    )
+    .map((assignment) => normalizeText(coverageTextForAssignment(assignment))));
+
+  return paragraphs.filter((paragraph) => {
+    if (
+      paragraph.paraPrIDRef === null ||
+      paragraph.text.trim().length === 0 ||
+      isBulletText(paragraph.text) ||
+      !generatedNonBulletTexts.has(normalizeText(paragraph.text))
+    ) {
+      return false;
+    }
+
+    const headingType = paragraphHeadingTypes.get(paragraph.paraPrIDRef);
+
+    return headingType !== undefined && headingType !== "NONE";
+  }).length;
 }
 
 function countNonBlackGeneratedRuns(
@@ -376,6 +419,22 @@ function readParagraphIntents(headerXml: string): Map<string, number> {
   }
 
   return intents;
+}
+
+function readParagraphHeadingTypes(headerXml: string): Map<string, string> {
+  const headingTypes = new Map<string, string>();
+
+  for (const match of headerXml.matchAll(/<hh:paraPr\b(?=[^>]*\bid="([^"]+)")[^>]*>[\s\S]*?<\/hh:paraPr>/g)) {
+    const id = match[1] ?? "";
+    const paragraphXml = match[0];
+    const headingType = paragraphXml.match(/<hh:heading\b[^>]*\btype="([^"]+)"/)?.[1];
+
+    if (id.length > 0 && headingType !== undefined) {
+      headingTypes.set(id, headingType);
+    }
+  }
+
+  return headingTypes;
 }
 
 function extractTopLevelParagraphGeometry(sectionXml: string): OutputParagraphGeometry[] {

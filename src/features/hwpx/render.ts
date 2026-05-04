@@ -666,6 +666,7 @@ function renderHybridSectionXml(
     renderAssignments,
     bodyTableTemplates,
     structureTableTemplates,
+    tableStyleContext,
     createLineLayoutState(
       titleRegion.bodyTemplateXml,
       tableStyleContext.headerXml,
@@ -686,6 +687,7 @@ function renderAssignedHybridBodyBlocks(
   assignments: HwpxStyleAssignment[],
   bodyTableTemplates: TableTemplate[],
   structureTableTemplates: TableTemplate[],
+  tableStyleContext: TableStyleContext,
   layoutState: LineLayoutState
 ): string {
   let xml = "";
@@ -712,7 +714,7 @@ function renderAssignedHybridBodyBlocks(
       : undefined;
 
     if (structureTable !== undefined) {
-      xml += renderStructureTable(structureTable, assignment.text);
+      xml += renderStructureTable(structureTable, assignment.text, tableStyleContext);
       reserveTableLayoutSpace(layoutState, structureTable.xml);
       paragraphIndex += 1;
       return;
@@ -776,6 +778,16 @@ function prepareGeneratedParagraphStyles(
         paraPrIDRef: leftAlignedParaPrIDRef
       };
       reasons.push("generated left alignment");
+    }
+
+    const plainParaPrIDRef = ensureGeneratedPlainParaPr(context, style.paraPrIDRef);
+
+    if (plainParaPrIDRef !== null) {
+      style = {
+        ...style,
+        paraPrIDRef: plainParaPrIDRef
+      };
+      reasons.push("removed automatic paragraph heading");
     }
 
     if (reasons.length === 0) {
@@ -1717,11 +1729,11 @@ function selectStructureTableTemplate(
   return templates.find((template) => template.order === assignment.structureTable?.order);
 }
 
-function renderStructureTable(template: TableTemplate, text: string): string {
+function renderStructureTable(template: TableTemplate, text: string, tableStyleContext: TableStyleContext): string {
   let replacementUsed = false;
   const escapedText = escapeXmlText(text);
 
-  return template.xml.replace(
+  const xmlWithText = template.xml.replace(
     /<hp:t\b(?![^>]*\/>)([^>]*)>([\s\S]*?)<\/hp:t>|<hp:t\b([^>]*)\/>/g,
     (_match, normalAttrs: string | undefined, _text: string | undefined, selfClosingAttrs: string | undefined) => {
       const attrs = normalAttrs ?? selfClosingAttrs ?? "";
@@ -1734,6 +1746,24 @@ function renderStructureTable(template: TableTemplate, text: string): string {
       return `<hp:t${attrs}></hp:t>`;
     }
   );
+
+  return sanitizeGeneratedTableParagraphStyles(xmlWithText, tableStyleContext);
+}
+
+function sanitizeGeneratedTableParagraphStyles(tableXml: string, tableStyleContext: TableStyleContext): string {
+  return tableXml.replace(/<hp:p\b[^>]*>/g, (paragraphTag) => {
+    const paraPrIDRef = readXmlAttribute(paragraphTag, "paraPrIDRef");
+
+    if (paraPrIDRef === null) {
+      return paragraphTag;
+    }
+
+    const plainParaPrIDRef = ensureGeneratedPlainParaPr(tableStyleContext, paraPrIDRef);
+
+    return plainParaPrIDRef === null
+      ? paragraphTag
+      : paragraphTag.replace(/\bparaPrIDRef="[^"]*"/, `paraPrIDRef="${plainParaPrIDRef}"`);
+  });
 }
 
 function reserveTableLayoutSpace(layoutState: LineLayoutState, tableXml: string): void {
@@ -2266,16 +2296,42 @@ function ensureGeneratedLeftAlignParaPr(
   return newParaPrId;
 }
 
+function ensureGeneratedPlainParaPr(
+  context: TableStyleContext,
+  sourceParaPrId: string
+): string | null {
+  const sourceParaPr = findParaPrXml(context.headerXml, sourceParaPrId);
+
+  if (sourceParaPr === null || !hasAutomaticParagraphHeading(sourceParaPr)) {
+    return null;
+  }
+
+  const key = `plain-heading:${sourceParaPrId}`;
+  const existing = context.clonedParaPrIds.get(key);
+
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const newParaPrId = String(context.nextParaPrId);
+  context.nextParaPrId += 1;
+  const clonedParaPr = forceNoAutomaticParagraphHeading(sourceParaPr.replace(/\bid="[^"]*"/, `id="${newParaPrId}"`));
+  context.headerXml = insertParaPr(context.headerXml, clonedParaPr);
+  context.clonedParaPrIds.set(key, newParaPrId);
+
+  return newParaPrId;
+}
+
 function applyGeneratedBulletParaPr(sourceParaPr: string, newParaPrId: string, leftIndent: number): string {
-  return forceLeftHorizontalAlign(replaceMarginValue(
+  return forceNoAutomaticParagraphHeading(forceLeftHorizontalAlign(replaceMarginValue(
     replaceMarginValue(sourceParaPr.replace(/\bid="[^"]*"/, `id="${newParaPrId}"`), "intent", 0),
     "left",
     leftIndent
-  ));
+  )));
 }
 
 function applyGeneratedLeftAlignParaPr(sourceParaPr: string, newParaPrId: string): string {
-  return forceLeftHorizontalAlign(sourceParaPr.replace(/\bid="[^"]*"/, `id="${newParaPrId}"`));
+  return forceNoAutomaticParagraphHeading(forceLeftHorizontalAlign(sourceParaPr.replace(/\bid="[^"]*"/, `id="${newParaPrId}"`)));
 }
 
 function forceLeftHorizontalAlign(paraPr: string): string {
@@ -2288,8 +2344,28 @@ function forceLeftHorizontalAlign(paraPr: string): string {
   return paraPr.replace(/(<hh:paraPr\b[^>]*>)/, '$1<hh:align horizontal="LEFT" vertical="BASELINE"/>');
 }
 
+function hasAutomaticParagraphHeading(paraPr: string): boolean {
+  const headingType = readParaPrHeadingType(paraPr);
+
+  return headingType !== null && headingType !== "NONE";
+}
+
+function forceNoAutomaticParagraphHeading(paraPr: string): string {
+  const plainHeading = '<hh:heading type="NONE" idRef="0" level="0"/>';
+
+  if (paraPr.includes("<hh:heading")) {
+    return paraPr.replace(/<hh:heading\b[^>]*\/>/, plainHeading);
+  }
+
+  return paraPr.replace(/(<hh:align\b[^>]*\/>)/, `$1${plainHeading}`);
+}
+
 function readParaPrHorizontalAlign(paraPr: string): string | null {
   return paraPr.match(/<hh:align\b[^>]*\bhorizontal="([^"]+)"/)?.[1] ?? null;
+}
+
+function readParaPrHeadingType(paraPr: string): string | null {
+  return paraPr.match(/<hh:heading\b[^>]*\btype="([^"]+)"/)?.[1] ?? null;
 }
 
 function replaceMarginValue(paraPr: string, name: string, value: number): string {
