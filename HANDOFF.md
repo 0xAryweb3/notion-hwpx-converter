@@ -3,11 +3,14 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last commit before this handoff update: `5ef0216 [feat] add table-aware visual dogfood`
+Last commit: `5ba319e [fix] sanitize generated heading paragraph styles`
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
-Active plan: `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
-Working tree currently contains the auto-heading sanitizer fix, tests, this plan, and the handoff update. External regenerated artifacts were written under `/Users/hyeon/Desktop/hwp-result/` and `/Users/hyeon/Desktop/hwp-result/visual/`; they are not tracked.
-Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, but direct Hancom screenshot capture is still blocked because `Hancom Office HWP Viewer` opens outside the captured desktop and Apple Events access to activate/read its windows is denied. Do not start another blind renderer rewrite until Hancom screenshots or concrete visual notes identify a remaining failure.
+Active plans:
+- `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
+- `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
+Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
+Working tree currently contains a quality-report/UI traceability fix, its regression test, a new plan, this audit, and this handoff update. External regenerated artifacts were written under `/Users/hyeon/Desktop/hwp-result/`; they are not tracked.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and direct Hancom screenshot capture now works after the user granted screen-recording permission. However app-control automation through `System Events` is still denied, so repeatable navigation/full-document Hancom screenshots are limited. Do not mark the active goal complete until later-page Hancom visual review and broader sample coverage are done.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -44,9 +47,18 @@ Implemented:
 - Visual dogfood audit now reports `justify-spacing-risk` when a generated top-level paragraph still uses `JUSTIFY` with spaced text.
 - Generated paragraph styles now clone any sample `hh:heading` metadata into output-only plain paragraph styles with `type="NONE"`, preventing Hancom from drawing automatic bullets on generated headings such as `울산 소식`.
 - Generated-output audit now reports `non-bullet-auto-heading` and includes `badNonBulletAutoHeadingCount` so this Hancom-only bullet regression fails before manual review.
+- The quality report now exposes assignment `textColor`, `indentKind`, `indentValue`, and user-facing `indentLabel`, so bullet rows show `글머리 들여쓰기` instead of misleading negative `내어쓰기` values.
+- The UI assignment report now shows all mapping rows in a scrollable table and marks `structureTable` rows with `· 표`, so later Notion sections such as `울산 소식`, `센터 소식`, and news titles are inspectable.
 
 ## What Was Tried
 - 2026-05-04 continuation:
+  - Added `docs/superpowers/plans/2026-05-04-quality-report-traceability.md` and `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`.
+  - Added a RED/GREEN quality-report regression proving bullet assignments expose `글머리 들여쓰기 1,448hu` and `textColor: "#000000"` instead of only the raw negative sample hanging indent.
+  - Updated `src/features/hwpx/quality.ts`, `src/panel/App.tsx`, and `src/panel/styles.css` so the UI report includes text color, user-facing indentation labels, all assignment rows, and `structureTable · 표` role labels.
+  - Regenerated `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx`, `current-9-10.hwpx`, and `current-6-7.hwpx` from the public Notion URL. All three scored 100 with 0 audit/visual issues.
+  - The regenerated 7-8 report shows `울산시, 기후위기 대응 중장기 전략 수립 착수`, `센터 소식`, and `울산‘탄소영감(Net-Zero) 실험실’프로젝트 참여자 모집` as black structure-table assignments, while `울산 소식` remains a black plain category heading because the 7-8 sample encodes that label as a paragraph rather than a table.
+  - After the user granted screen-recording permission, `screencapture` can now see Hancom. A fresh-open copy, `/Users/hyeon/Desktop/hwp-result/current-7-8-fresh-open.hwpx`, rendered the first page in Hancom with black text, title tables, and indented round bullets. `System Events` automation still returns `-1743`, so app-controlled page navigation is still unavailable.
+  - Verification after the quality-report fix: `npm test` passed 15 files / 120 tests, `npm run build` passed, and `git diff --check` passed.
   - User reported that Hancom still showed indentation where it should not. Screenshot inspection and XML comparison showed the generated text for `울산 소식` did not include `○`, but its paragraph style `paraPrIDRef="64"` had `<hh:heading type="BULLET">`, so Hancom drew an automatic bullet.
   - Added `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`.
   - Added RED tests in `src/test/hwpx-output-audit.test.ts` and `src/test/hwpx-render.test.ts` for non-bullet generated text inheriting automatic Hancom bullet/heading metadata.
@@ -250,7 +262,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Commit the auto-heading sanitizer fix, request code review, then have the user open `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` in Hancom and confirm the `울산 소식` automatic bullet is gone. The next concrete action after review is to address any remaining Hancom-only visual issue the user can see directly.
+Review and commit the quality-report traceability fix, then use Hancom screenshots/manual navigation to inspect later pages containing `울산 소식`, `센터 소식`, and the generated news-title structure tables.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.

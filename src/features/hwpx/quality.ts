@@ -26,8 +26,12 @@ export interface GenerationAssignmentRow {
   outputText: string;
   style: string | null;
   fontSizePt: number | null;
+  textColor: string | null;
   charSpacing: number | null;
   indent: number;
+  indentKind: "none" | "bullet" | "left" | "hanging";
+  indentValue: number;
+  indentLabel: string | null;
   reason: string;
   confidence: number;
 }
@@ -145,21 +149,54 @@ export function analyzeGenerationQuality(template: HwpxTemplate, blocks: Documen
     inputTableRowCount,
     structureTableAssignmentCount,
     issues,
-    assignmentRows: assignments.map((assignment) => ({
-      type: assignment.renderAs === "structureTable" ? "structureTable" : assignment.type,
-      grammarRole: assignment.grammarRole,
-      sourceText: assignment.text.replace(/^\s*○\s*/u, ""),
-      outputText: assignment.text,
-      style: assignment.style === undefined
-        ? null
-        : `${assignment.style.paraPrIDRef}/${assignment.style.charPrIDRef}/${assignment.style.styleIDRef}`,
-      fontSizePt: assignment.fontSizePt,
-      charSpacing: assignment.charSpacing,
-      indent: assignment.paragraphMargins.intent,
-      reason: assignment.reason,
-      confidence: assignment.confidence
-    }))
+    assignmentRows: assignments.map((assignment) => {
+      const indentSummary = summarizeIndent(assignment.grammarRole, assignment.paragraphMargins);
+
+      return {
+        type: assignment.renderAs === "structureTable" ? "structureTable" : assignment.type,
+        grammarRole: assignment.grammarRole,
+        sourceText: assignment.text.replace(/^\s*○\s*/u, ""),
+        outputText: assignment.text,
+        style: assignment.style === undefined
+          ? null
+          : `${assignment.style.paraPrIDRef}/${assignment.style.charPrIDRef}/${assignment.style.styleIDRef}`,
+        fontSizePt: assignment.fontSizePt,
+        textColor: assignment.textColor,
+        charSpacing: assignment.charSpacing,
+        indent: assignment.paragraphMargins.intent,
+        indentKind: indentSummary.kind,
+        indentValue: indentSummary.value,
+        indentLabel: indentSummary.label,
+        reason: assignment.reason,
+        confidence: assignment.confidence
+      };
+    })
   };
+}
+
+function summarizeIndent(
+  grammarRole: string,
+  margins: { intent: number; left: number }
+): { kind: GenerationAssignmentRow["indentKind"]; value: number; label: string | null } {
+  if ((grammarRole === "bullet" || grammarRole === "newsBullet") && margins.intent < 0) {
+    const value = Math.abs(margins.intent);
+
+    return { kind: "bullet", value, label: `글머리 들여쓰기 ${formatHwpxUnit(value)}` };
+  }
+
+  if (margins.left > 0) {
+    return { kind: "left", value: margins.left, label: `좌측 들여쓰기 ${formatHwpxUnit(margins.left)}` };
+  }
+
+  if (margins.intent < 0) {
+    return { kind: "hanging", value: margins.intent, label: `내어쓰기 ${formatHwpxUnit(margins.intent)}` };
+  }
+
+  return { kind: "none", value: 0, label: null };
+}
+
+function formatHwpxUnit(value: number): string {
+  return `${value.toLocaleString("ko-KR")}hu`;
 }
 
 function countTemplateImages(sectionXml: string): number {

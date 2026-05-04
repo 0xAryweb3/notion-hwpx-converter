@@ -469,23 +469,23 @@ function renderQualityReport(report: GenerationQualityReport) {
               </tr>
             </thead>
             <tbody>
-              {report.assignmentRows.slice(0, 12).map((row, index) => (
+              {report.assignmentRows.map((row, index) => (
                 <tr key={`${row.grammarRole}-${index}`}>
                   <td>{row.outputText}</td>
-                  <td>{row.grammarRole}</td>
+                  <td>{row.type === "structureTable" ? `${row.grammarRole} · 표` : row.grammarRole}</td>
                   <td>{row.style ?? "-"}</td>
                   <td>
                     {[
                       row.fontSizePt === null ? null : `${formatDecimal(row.fontSizePt)}pt`,
+                      row.textColor,
                       row.charSpacing === null ? null : `자간 ${row.charSpacing}`,
-                      row.indent === 0 ? null : `내어쓰기 ${row.indent}`
+                      row.indentLabel
                     ].filter((value): value is string => value !== null).join(" · ") || "-"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {report.assignmentRows.length > 12 ? <small>상위 12개만 표시합니다.</small> : null}
         </div>
       ) : null}
     </div>

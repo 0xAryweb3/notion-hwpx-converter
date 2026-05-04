@@ -114,6 +114,23 @@ describe("analyzeGenerationQuality", () => {
       outputText: "○ 새 센터 본문"
     });
   });
+
+  it("labels bullet indentation as output indentation instead of negative hanging indent", () => {
+    const template = loadHwpxTemplate(createTemplateZip());
+    const report = analyzeGenerationQuality(template, [
+      { id: "block-1", role: "dashItem", text: "- 새 글머리" }
+    ]);
+
+    expect(report.assignmentRows[0]).toMatchObject({
+      grammarRole: "bullet",
+      outputText: "○ 새 글머리",
+      textColor: "#000000",
+      indent: -1448,
+      indentKind: "bullet",
+      indentValue: 1448,
+      indentLabel: "글머리 들여쓰기 1,448hu"
+    });
+  });
 });
 
 function createTemplateZip(): Uint8Array {
@@ -155,7 +172,10 @@ function createHeader(): string {
 <hh:head xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core">
   <hh:borderFills itemCnt="1"><hh:borderFill id="2"/></hh:borderFills>
   <hh:charProperties itemCnt="1"><hh:charPr id="1" height="1000" textColor="#000000"><hh:fontRef hangul="0"/><hh:spacing hangul="0"/><hh:ratio hangul="100"/></hh:charPr></hh:charProperties>
-  <hh:paraProperties itemCnt="1"><hh:paraPr id="1" tabPrIDRef="0"><hh:align horizontal="JUSTIFY" vertical="BASELINE"/><hh:margin><hc:intent value="0"/><hc:left value="0"/><hc:right value="0"/><hc:prev value="0"/><hc:next value="0"/></hh:margin><hh:lineSpacing type="PERCENT" value="160"/><hh:border borderFillIDRef="2"/></hh:paraPr></hh:paraProperties>
+  <hh:paraProperties itemCnt="2">
+    <hh:paraPr id="1" tabPrIDRef="0"><hh:align horizontal="JUSTIFY" vertical="BASELINE"/><hh:margin><hc:intent value="0"/><hc:left value="0"/><hc:right value="0"/><hc:prev value="0"/><hc:next value="0"/></hh:margin><hh:lineSpacing type="PERCENT" value="160"/><hh:border borderFillIDRef="2"/></hh:paraPr>
+    <hh:paraPr id="2" tabPrIDRef="0"><hh:align horizontal="JUSTIFY" vertical="BASELINE"/><hh:margin><hc:intent value="-1448"/><hc:left value="0"/><hc:right value="0"/><hc:prev value="0"/><hc:next value="0"/></hh:margin><hh:lineSpacing type="PERCENT" value="160"/><hh:border borderFillIDRef="2"/></hh:paraPr>
+  </hh:paraProperties>
 </hh:head>`;
 }
 
@@ -165,6 +185,7 @@ function createSection(includeBodyTable: boolean): string {
   <hp:p id="page" paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="1"><hp:secPr id=""><hp:pagePr landscape="WIDELY" width="59528" height="84186"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/></hp:pagePr></hp:secPr></hp:run></hp:p>
   <hp:tbl id="title"><hp:tr><hp:tc><hp:subList><hp:p id="title-p" paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>제목</hp:t></hp:run></hp:p></hp:subList></hp:tc></hp:tr></hp:tbl>
   <hp:p id="body" paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>본문 제목</hp:t></hp:run></hp:p>
+  <hp:p id="bullet" paraPrIDRef="2" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>○ 샘플 글머리</hp:t></hp:run></hp:p>
   ${
     includeBodyTable
       ? '<hp:tbl id="body-table"><hp:tr><hp:tc><hp:subList><hp:p id="table-p" paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>표</hp:t></hp:run></hp:p></hp:subList></hp:tc><hp:tc><hp:subList><hp:p id="table-p2" paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>본문</hp:t></hp:run></hp:p></hp:subList></hp:tc></hp:tr></hp:tbl>'
