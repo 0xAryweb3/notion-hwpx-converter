@@ -41,12 +41,26 @@ export interface VisualDogfoodLine {
   horzSize: number;
 }
 
+export interface VisualDogfoodTable {
+  index: number;
+  text: string;
+  rowCount: number;
+  colCount: number;
+  width: number;
+  height: number;
+  insideAnchor: boolean;
+  pageIndex: number;
+}
+
 export interface VisualDogfoodReport {
   paragraphs: VisualDogfoodParagraph[];
+  tables: VisualDogfoodTable[];
   issues: VisualDogfoodIssue[];
   summary: {
     paragraphs: number;
     nonEmptyParagraphs: number;
+    tables: number;
+    nonEmptyTables: number;
     nonBlackGeneratedTextCount: number;
     bulletNegativeIndentStyleCount: number;
     bulletContinuationIndentRiskCount: number;
@@ -78,14 +92,18 @@ export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string):
   const paragraphAligns = readParagraphAligns(headerXml);
   const pageContentHeight = readPageContentHeight(sectionXml);
   const paragraphs = extractVisualParagraphs(sectionXml, characterStyles, paragraphMargins, paragraphAligns);
+  const tables = extractVisualTables(sectionXml);
   const issues = collectIssues(paragraphs, pageContentHeight);
 
   return {
     paragraphs,
+    tables,
     issues,
     summary: {
       paragraphs: paragraphs.length,
       nonEmptyParagraphs: paragraphs.filter((paragraph) => paragraph.text.trim().length > 0).length,
+      tables: tables.length,
+      nonEmptyTables: tables.filter((table) => table.text.trim().length > 0).length,
       nonBlackGeneratedTextCount: issues.filter((issue) => issue.code === "non-black-generated-text").length,
       bulletNegativeIndentStyleCount: issues.filter((issue) => issue.code === "bullet-negative-indent-style").length,
       bulletContinuationIndentRiskCount: issues.filter((issue) => issue.code === "bullet-continuation-indent-risk").length,
@@ -102,14 +120,17 @@ export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string):
 export function renderVisualDogfoodSvg(report: VisualDogfoodReport): string {
   const scale = 0.018;
   const margin = 36;
+  const pageWidth = 1050;
+  const tablePanelWidth = 430;
   const maxBottom = Math.max(
     8000,
     ...report.paragraphs.flatMap((paragraph) =>
       paragraph.lines.map((line) => absoluteLineTop(report, paragraph, line) + line.textHeight + line.spacing)
     )
   );
-  const width = 1050;
-  const height = Math.ceil(maxBottom * scale + margin * 2);
+  const width = pageWidth + tablePanelWidth;
+  const tablePanelMinHeight = margin * 2 + 42 + Math.min(report.tables.length, 18) * 92;
+  const height = Math.ceil(Math.max(maxBottom * scale + margin * 2, tablePanelMinHeight));
   const issueParagraphs = new Set(
     report.issues
       .filter((issue) => issue.paragraphIndex !== undefined)
@@ -147,6 +168,7 @@ export function renderVisualDogfoodSvg(report: VisualDogfoodReport): string {
       return `${marker}<text x="${x}" y="${y}" font-size="${fontSize}" fill="${escapeXml(fill)}">${escapeXml(text || "·")}</text>`;
     }).join("");
   }).join("");
+  const tablePanel = renderTablePanel(report, pageWidth, margin, height);
   const issueList = report.issues
     .slice(0, 12)
     .map((issue, index) =>
@@ -156,10 +178,52 @@ export function renderVisualDogfoodSvg(report: VisualDogfoodReport): string {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
     `<rect width="${width}" height="${height}" fill="#ffffff"/>` +
-    `<rect x="18" y="18" width="${width - 36}" height="${height - 36}" fill="none" stroke="#d1d5db"/>` +
+    `<rect x="18" y="18" width="${pageWidth - 36}" height="${height - 36}" fill="none" stroke="#d1d5db"/>` +
     labels +
+    tablePanel +
     issueList +
     `</svg>`;
+}
+
+function renderTablePanel(
+  report: VisualDogfoodReport,
+  pageWidth: number,
+  margin: number,
+  height: number
+): string {
+  const panelX = pageWidth + 18;
+  const panelWidth = 394;
+  const cardGap = 10;
+  let y = margin;
+  const cards: string[] = [
+    `<rect x="${panelX}" y="18" width="${panelWidth}" height="${height - 36}" fill="#f8fafc" stroke="#d1d5db"/>`,
+    `<text x="${panelX + 16}" y="${y}" font-size="15" font-weight="700" fill="#111827">Table motifs (${report.summary.tables})</text>`
+  ];
+  y += 18;
+
+  for (const table of report.tables) {
+    const lines = splitTableText(table.text);
+    const cardHeight = 48 + Math.max(1, lines.length) * 17;
+
+    if (y + cardHeight > height - 24) {
+      cards.push(`<text x="${panelX + 16}" y="${y + 20}" font-size="12" fill="#64748b">+ ${report.tables.length - table.index} more tables</text>`);
+      break;
+    }
+
+    const label = `${table.index + 1}. ${table.rowCount}x${table.colCount}${table.insideAnchor ? " anchor" : " block"} p${table.pageIndex + 1}`;
+    cards.push(
+      `<rect x="${panelX + 12}" y="${y}" width="${panelWidth - 24}" height="${cardHeight}" rx="4" fill="#ffffff" stroke="#cbd5e1"/>`,
+      `<text x="${panelX + 24}" y="${y + 18}" font-size="11" fill="#64748b">${escapeXml(label)}</text>`
+    );
+
+    lines.forEach((line, index) => {
+      cards.push(`<text x="${panelX + 24}" y="${y + 38 + index * 17}" font-size="13" fill="#111827">${escapeXml(line)}</text>`);
+    });
+
+    y += cardHeight + cardGap;
+  }
+
+  return cards.join("");
 }
 
 function collectIssues(paragraphs: VisualDogfoodParagraph[], pageContentHeight: number): VisualDogfoodIssue[] {
@@ -400,6 +464,51 @@ function extractVisualParagraphs(
   }
 
   return paragraphs;
+}
+
+function extractVisualTables(sectionXml: string): VisualDogfoodTable[] {
+  const contentXml = readSectionContent(sectionXml);
+  const blocks = readTopLevelBlocks(contentXml);
+  const tables: VisualDogfoodTable[] = [];
+  let pageIndex = 0;
+
+  for (const block of blocks) {
+    if (block.type === "hp:p" && readXmlAttribute(block.attrs, "pageBreak") === "1") {
+      pageIndex += 1;
+    }
+
+    if (block.type === "hp:tbl") {
+      tables.push(createVisualTable(block.xml, tables.length, false, pageIndex));
+      continue;
+    }
+
+    for (const tableXml of extractElementXmls(block.xml, "hp:tbl")) {
+      tables.push(createVisualTable(tableXml, tables.length, true, pageIndex));
+    }
+  }
+
+  return tables;
+}
+
+function createVisualTable(
+  xml: string,
+  index: number,
+  insideAnchor: boolean,
+  pageIndex: number
+): VisualDogfoodTable {
+  const attrs = xml.match(/^<hp:tbl\b([^>]*)>/)?.[1] ?? "";
+  const sizeAttrs = xml.match(/<hp:sz\b([^>]*)\/>/)?.[1] ?? "";
+
+  return {
+    index,
+    text: extractTableText(xml),
+    rowCount: readNumberAttribute(attrs, "rowCnt", countTableRows(xml)),
+    colCount: readNumberAttribute(attrs, "colCnt", countTableColumns(xml)),
+    width: readNumberAttribute(sizeAttrs, "width", 0),
+    height: readNumberAttribute(sizeAttrs, "height", 0),
+    insideAnchor,
+    pageIndex
+  };
 }
 
 function createVisualParagraph(
@@ -702,6 +811,56 @@ function extractParagraphText(paragraphXml: string): string {
     paragraphXml.matchAll(/<hp:t\b(?![^>]*\/>)[^>]*>([\s\S]*?)<\/hp:t>/g),
     (match) => decodeXmlText(match[1] ?? "")
   ).join("");
+}
+
+function extractTableText(tableXml: string): string {
+  return extractParagraphElements(tableXml)
+    .map((paragraph) => extractParagraphText(paragraph.xml).trim())
+    .filter((text) => text.length > 0)
+    .join(" ");
+}
+
+function countTableRows(tableXml: string): number {
+  return extractElementXmls(tableXml, "hp:tr").length;
+}
+
+function countTableColumns(tableXml: string): number {
+  const counts = extractElementXmls(tableXml, "hp:tr").map((rowXml) =>
+    extractElementXmls(rowXml, "hp:tc").length
+  );
+
+  return Math.max(0, ...counts);
+}
+
+function splitTableText(text: string): string[] {
+  const normalized = text.replace(/\s+/gu, " ").trim();
+
+  if (normalized.length === 0) {
+    return ["(empty table text)"];
+  }
+
+  const lines: string[] = [];
+  let remaining = normalized;
+
+  while (remaining.length > 0 && lines.length < 3) {
+    if (remaining.length <= 26) {
+      lines.push(remaining);
+      remaining = "";
+      break;
+    }
+
+    const slice = remaining.slice(0, 26);
+    const splitAt = Math.max(slice.lastIndexOf(" "), 14);
+    lines.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+
+  if (remaining.length > 0) {
+    const last = lines.at(-1) ?? "";
+    lines[lines.length - 1] = `${last.replace(/\s*…?$/u, "")}…`;
+  }
+
+  return lines;
 }
 
 function decodeXmlText(value: string): string {

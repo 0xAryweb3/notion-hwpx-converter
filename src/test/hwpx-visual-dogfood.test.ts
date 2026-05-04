@@ -30,9 +30,42 @@ describe("HWPX visual dogfood audit", () => {
     const svg = renderVisualDogfoodSvg(report);
 
     expect(svg).toContain("<svg");
+    expect(report.tables).toEqual([
+      expect.objectContaining({
+        text: "표지",
+        rowCount: 1,
+        colCount: 1,
+        insideAnchor: false
+      })
+    ]);
     expect(svg).toContain("1. 파란 제목");
+    expect(svg).toContain("Table motifs (1)");
+    expect(svg).toContain("표지");
     expect(svg).toContain("#0000FF");
     expect(svg).toContain("visual-dogfood-issue");
+  });
+
+  it("renders table text that is invisible in top-level paragraph previews", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="title-anchor" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:tbl rowCnt="1" colCnt="1"><hp:sz width="20000" height="3000"/><hp:tr><hp:tc><hp:subList>${paragraph("title", "1", "1", "울산광역시 탄소중립지원센터 BRIEF", 0)}</hp:subList></hp:tc></hp:tr></hp:tbl><hp:t/></hp:run>
+    <hp:linesegarray><hp:lineseg textpos="0" vertpos="0" vertsize="3000" textheight="3000" baseline="2550" spacing="600" horzpos="0" horzsize="42520" flags="393216"/></hp:linesegarray>
+  </hp:p>
+  <hp:tbl rowCnt="1" colCnt="1"><hp:sz width="20000" height="2000"/><hp:tr><hp:tc><hp:subList>${paragraph("section", "1", "1", "탄소중립 정보공유", 0)}</hp:subList></hp:tc></hp:tr></hp:tbl>
+  ${paragraph("body", "1", "3", "본문", 3600)}
+</hs:sec>`);
+    const svg = renderVisualDogfoodSvg(report);
+
+    expect(report.tables.map((table) => table.text)).toEqual([
+      "울산광역시 탄소중립지원센터 BRIEF",
+      "탄소중립 정보공유"
+    ]);
+    expect(report.summary.tables).toBe(2);
+    expect(report.tables[0]).toMatchObject({ insideAnchor: true, rowCount: 1, colCount: 1 });
+    expect(svg).toContain("울산광역시 탄소중립지원센터");
+    expect(svg).toContain("탄소중립 정보공유");
+    expect(svg).toContain(">탄소중립 정보공유</text>");
   });
 
   it("does not report overlap when a generated paragraph starts on a new page", () => {

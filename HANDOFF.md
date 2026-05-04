@@ -1,12 +1,13 @@
 ## Goal
-Build a Chrome extension MVP that converts a Notion export or pasted text into an HWPX document by extracting formatting from an uploaded sample HWPX file.
+Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
 
 ## Current Status
-Branch: `feat/notion-hwpx-converter`
-Last commit before this handoff update: `20633a3`
-Active plan: `docs/superpowers/plans/2026-04-29-visual-dogfood-audit-loop.md`
-Working tree: dirty, no files staged/committed/pushed in this session. The dirty tree includes earlier Notion/HWPX converter work plus the latest layout-safety and indent-audit files (`src/features/hwpx/layoutSafety.ts`, `formatGrammar.ts`, `styleAssignment.ts`, `outputAudit.ts`, `render.ts`, `quality.ts`, `helper/generate-local.ts`, and related tests/docs).
-Known unresolved gap: XML-level audits and browser-rendered SVG dogfood previews pass, but final Hancom visual rendering still needs manual review against the sample documents.
+Branch: `feat/codex-goals-workflow`
+Last commit before this handoff update: `f40806a docs: add codex goals session brief`
+Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
+Active plan: `docs/superpowers/plans/2026-05-04-table-aware-visual-dogfood.md`
+Working tree before the 2026-05-04 continuation had a dirty `HANDOFF.md` from the previous goal session. This continuation adds table-aware visual dogfood code/tests/docs and regenerated external preview artifacts under `/Users/hyeon/Desktop/hwp-result/visual/`.
+Known unresolved gap: XML-level audits and browser-rendered SVG dogfood previews pass on current code, but final Hancom visual rendering still needs direct manual review against the sample documents. Do not start another blind renderer rewrite until Hancom screenshots or concrete visual notes identify a remaining failure.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -43,6 +44,35 @@ Implemented:
 - Visual dogfood audit now reports `justify-spacing-risk` when a generated top-level paragraph still uses `JUSTIFY` with spaced text.
 
 ## What Was Tried
+- 2026-05-04 continuation:
+  - Confirmed the current branch is `feat/codex-goals-workflow`.
+  - Confirmed `/private/tmp/hwp-result/current-7-8.hwpx`, `current-9-10.hwpx`, and `current-6-7.hwpx` plus JSON reports exist from the previous goal-session run.
+  - Confirmed the machine has `Hancom Office HWP Viewer.app`, but `qlmanage` thumbnail generation for HWPX hangs, so it is not usable as an automated Hancom proxy.
+  - Inspected the existing visual dogfood PNG and found the preview hid `insideTable` content, so title tables and one-cell structure motifs were invisible even though generated HWPX XML/report tables were present.
+  - Added `docs/superpowers/plans/2026-05-04-table-aware-visual-dogfood.md`.
+  - Extended `src/features/hwpx/visualDogfood.ts` so `VisualDogfoodReport` includes table summaries with text, row/column count, width/height, anchor/block status, and page index.
+  - Updated `renderVisualDogfoodSvg()` to include a right-side `Table motifs` panel showing title tables and structure tables.
+  - Added regressions in `src/test/hwpx-visual-dogfood.test.ts` proving table text appears in SVG previews.
+  - Addressed code-review feedback by adding row/column fallback counting for tables that omit `rowCnt`/`colCnt`, and by separating table paragraph text instead of concatenating it without separators.
+  - Regenerated table-aware previews and reports:
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-7-8.table-aware.svg` / `.png` / `.json`: 8 non-empty tables, 0 visual errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-9-10.table-aware.svg` / `.png` / `.json`: 7 non-empty tables, 0 visual errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-6-7.table-aware.svg` / `.png` / `.json`: 8 non-empty tables, 0 visual errors/warnings.
+  - Copied current generated HWPX/JSON artifacts from `/private/tmp/hwp-result/` into `/Users/hyeon/Desktop/hwp-result/` for manual Hancom review.
+  - Ran `npm test`: 15 files / 116 tests passed.
+  - Ran `npm run build`: TypeScript and Vite production build passed.
+  - Ran `git diff --check`: passed.
+- 2026-05-03 current-session verification:
+  - Read `README.md`, `HANDOFF.md`, the commercial engine design, the structure motif design, the structure motif implementation plan, and `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`.
+  - Confirmed the current branch is `feat/codex-goals-workflow` at `f40806a` and the worktree was clean before this handoff edit.
+  - Ran `npm test`: 15 files / 115 tests passed.
+  - Ran `npm run build`: TypeScript and Vite production build passed.
+  - Ran `git diff --check`: passed.
+  - Regenerated current-code outputs from the live public Notion URL into `/private/tmp/hwp-result/` using all three BRIEF samples:
+    - `current-7-8.hwpx` / `current-7-8.json`: score 100, passed true, 0 output-audit errors/warnings, 0 visual errors/warnings, 8 output tables, 6 body structure tables, 62 line segment arrays, 0 missing source text.
+    - `current-9-10.hwpx` / `current-9-10.json`: score 100, passed true, 0 output-audit errors/warnings, 0 visual errors/warnings, 7 output tables, 5 body structure tables, 62 line segment arrays, 0 missing source text.
+    - `current-6-7.hwpx` / `current-6-7.json`: score 100, passed true, 0 output-audit errors/warnings, 0 visual errors/warnings, 8 output tables, 7 body structure tables, 63 line segment arrays, 0 missing source text.
+  - Conclusion: the committed pipeline already satisfies the automated brief gates. The next useful plan should focus on Hancom-rendered visual evidence and closing gaps found there, not on speculative XML/style changes.
 - Confirmed the provided sample HWPX is a ZIP package and contains `Contents/header.xml` plus `Contents/section0.xml`.
 - Extracted sample style references such as `paraPrIDRef` and `charPrIDRef` from existing paragraphs.
 - Used TDD for document role detection, Notion export parsing, and HWPX rendering.
@@ -199,7 +229,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Open `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx`, `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx`, and `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx` in Hancom and judge the visual result. The browser dogfood previews are clean, but the next concrete action is still to compare Hancom screenshots against the samples and close any remaining visual gaps that XML/SVG audits cannot prove.
+Open either the current generated files in `/private/tmp/hwp-result/current-7-8.hwpx`, `/private/tmp/hwp-result/current-9-10.hwpx`, and `/private/tmp/hwp-result/current-6-7.hwpx`, or the existing Desktop copies in `/Users/hyeon/Desktop/hwp-result/`, in Hancom and compare them against the source samples. Also inspect the table-aware previews in `/Users/hyeon/Desktop/hwp-result/visual/current-*.table-aware.png`. The next concrete action is to capture Hancom screenshots or specific visual notes, then implement only the gaps that real Hancom rendering proves.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.
