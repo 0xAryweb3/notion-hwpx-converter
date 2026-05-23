@@ -3,6 +3,14 @@ export interface QaSampleSpec {
   path: string;
 }
 
+export interface QaRunCliOptions {
+  sourceUrl?: string;
+  sourceText?: string;
+  outputDir: string;
+  samples: QaSampleSpec[];
+  openHancom: boolean;
+}
+
 export interface QaRunInput {
   generatedAt: string;
   source: {
@@ -72,6 +80,72 @@ export function parseQaSampleSpec(value: string): QaSampleSpec {
   return {
     label: value.slice(0, separatorIndex),
     path: value.slice(separatorIndex + 2)
+  };
+}
+
+export function parseQaRunArgs(args: string[]): QaRunCliOptions {
+  let sourceUrl: string | undefined;
+  let sourceText: string | undefined;
+  let outputDir: string | undefined;
+  let openHancom = false;
+  const samples: QaSampleSpec[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const key = args[index];
+
+    if (key === "--open-hancom") {
+      openHancom = true;
+      continue;
+    }
+
+    if (key === undefined || !key.startsWith("--")) {
+      throw new Error("Usage: vite-node helper/qa-run.ts --source-url <url> --output-dir <dir> --sample <label::sample.hwpx>");
+    }
+
+    const value = args[index + 1];
+
+    if (value === undefined) {
+      throw new Error(`${key} requires a value`);
+    }
+
+    switch (key) {
+      case "--source-url":
+        sourceUrl = value;
+        break;
+      case "--source-text":
+        sourceText = value;
+        break;
+      case "--output-dir":
+        outputDir = value;
+        break;
+      case "--sample":
+        samples.push(parseQaSampleSpec(value));
+        break;
+      default:
+        throw new Error(`Unknown argument: ${key}`);
+    }
+
+    index += 1;
+  }
+
+  if (sourceUrl === undefined && sourceText === undefined) {
+    throw new Error("--source-url or --source-text is required");
+  }
+
+  if (outputDir === undefined) {
+    throw new Error("--output-dir is required");
+  }
+
+  if (samples.length === 0) {
+    throw new Error("at least one --sample is required");
+  }
+
+  return {
+    sourceUrl,
+    sourceText,
+    outputDir,
+    samples,
+    openHancom
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildQaRunSummary,
+  parseQaRunArgs,
   parseQaSampleSpec,
   renderQaRunMarkdown
 } from "../features/hwpx/qaRun";
@@ -15,6 +16,30 @@ describe("HWPX QA run", () => {
 
   it("rejects malformed sample specs", () => {
     expect(() => parseQaSampleSpec("/tmp/sample.hwpx")).toThrow("--sample must use label::path");
+  });
+
+  it("parses repeated QA runner sample arguments", () => {
+    expect(parseQaRunArgs([
+      "--source-text", "본문",
+      "--output-dir", "/tmp/hwp-qa",
+      "--sample", "a::/tmp/a.hwpx",
+      "--sample", "b::/tmp/b.hwpx"
+    ])).toEqual({
+      sourceText: "본문",
+      outputDir: "/tmp/hwp-qa",
+      samples: [
+        { label: "a", path: "/tmp/a.hwpx" },
+        { label: "b", path: "/tmp/b.hwpx" }
+      ],
+      openHancom: false
+    });
+  });
+
+  it("rejects QA runner arguments without source input", () => {
+    expect(() => parseQaRunArgs([
+      "--output-dir", "/tmp/hwp-qa",
+      "--sample", "a::/tmp/a.hwpx"
+    ])).toThrow("--source-url or --source-text is required");
   });
 
   it("fails the run when any generated report has visual warnings", () => {
