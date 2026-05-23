@@ -3,15 +3,16 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last commit: `[fix] avoid tight generated pages`
+Last commit: `[feat] add hwpx qa runner cli`
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
+- `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`
 - `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree currently contains a visual-dogfood page-bottom-headroom/table-geometry audit, renderer pagination guardrails, regression tests, docs updates, and regenerated external artifacts under `/Users/hyeon/Desktop/hwp-result/`; external artifacts are not tracked.
-Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and direct Hancom screenshot capture now works after the user granted screen-recording permission. However app-control automation through `System Events` is still denied, and a low-level PageDown attempt produced black screenshots, so repeatable later-page Hancom visual review is still limited. Do not mark the active goal complete until later-page Hancom visual review and broader sample coverage are done.
+Working tree currently only needs this handoff update. The new QA runner artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-current/`; external artifacts are not tracked.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and direct Hancom screenshot capture works when the user grants screen-recording permission. However app-control automation through `System Events` was previously denied, and a low-level PageDown attempt produced black screenshots, so repeatable later-page Hancom visual review is still limited. Do not mark the active goal complete until later-page Hancom visual review and broader sample coverage are done.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -53,8 +54,27 @@ Implemented:
 - Visual dogfood now reports `page-bottom-tight-risk` and `pageBottomTightRiskCount` when a page has less than `2000hu` of bottom headroom, because Hancom may reflow that page into an extra page.
 - Visual dogfood now includes top/bottom geometry for generated tables in page-overflow and page-bottom-headroom checks.
 - The renderer now moves generated paragraphs and generated structure tables to a new page when they would leave less than `2000hu` of page-bottom headroom.
+- Added `helper/qa-run.ts`, a batch QA runner that generates `.hwpx`, `.json`, `.svg`, `qa-summary.json`, and `qa-summary.md` for multiple samples from one source.
+- Added `src/features/hwpx/generationReport.ts` so single-sample and batch generation share the same report-building logic.
+- Added `src/features/hwpx/qaRun.ts` for sample-spec parsing, QA gate aggregation, and Markdown summary rendering.
 
 ## What Was Tried
+- 2026-05-23 continuation:
+  - Added `docs/superpowers/specs/2026-05-23-hancom-visual-qa-runner-design.md` and `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`.
+  - Added `src/features/hwpx/qaRun.ts` and `src/test/hwpx-qa-run.test.ts` with RED/GREEN coverage for sample-spec parsing, repeated CLI samples, run-level pass/fail gates, and Markdown summary rendering.
+  - Added `src/features/hwpx/generationReport.ts` and refactored `helper/generate-local.ts` to share report creation for HWPX output, output audit, and visual dogfood.
+  - Added `helper/qa-run.ts` and README docs for the batch QA command. The runner writes one `.hwpx`, `.json`, and `.svg` per sample plus `qa-summary.json` and `qa-summary.md`.
+  - Verification after implementation:
+    - `npm test`: 16 files / 132 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+  - Ran the QA runner against the public Notion page and all three BRIEF samples:
+    - Output directory: `/Users/hyeon/Desktop/hwp-result/qa-current`
+    - Summary: `/Users/hyeon/Desktop/hwp-result/qa-current/qa-summary.md`
+    - Result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
+    - `7-8`: PASS, page count 2, output tables 8, body structure tables 6.
+    - `9-10`: PASS, page count 2, output tables 7, body structure tables 5.
+    - `6-7`: PASS, page count 3, output tables 8, body structure tables 7.
 - 2026-05-04 continuation:
   - Added `docs/superpowers/plans/2026-05-04-quality-report-traceability.md` and `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`.
   - Added a RED/GREEN quality-report regression proving bullet assignments expose `글머리 들여쓰기 1,448hu` and `textColor: "#000000"` instead of only the raw negative sample hanging indent.
@@ -273,7 +293,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Commit the page-bottom-headroom visual-dogfood fix, then decide whether to rebalance generated layout spacing/page breaks so 7-8 and 6-7 no longer risk Hancom adding an extra page.
+Commit this handoff update. Next concrete action: use `/Users/hyeon/Desktop/hwp-result/qa-current/qa-summary.md` as the baseline, then add manual Hancom screenshot notes or OCR-based screenshot checks only for cases where the user visually flags a generated output.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.
