@@ -1,17 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
-import { strFromU8, unzipSync } from "fflate";
 import { normalizeLinesToBlocks } from "../src/features/document/detect";
 import type { DocumentBlock } from "../src/features/document/types";
-import { applyLayoutSafety } from "../src/features/hwpx/layoutSafety";
-import { auditGeneratedHwpx } from "../src/features/hwpx/outputAudit";
-import { analyzeGenerationQuality } from "../src/features/hwpx/quality";
-import { generateHwpx } from "../src/features/hwpx/render";
+import { buildGeneratedHwpxConsoleSummary, generateHwpxReport } from "../src/features/hwpx/generationReport";
 import { loadHwpxTemplate } from "../src/features/hwpx/template";
-import { buildHwpxSourceStructure } from "../src/features/hwpx/sourceStructure";
-import { assignHwpxStyles } from "../src/features/hwpx/styleAssignment";
-import { analyzeHwpxVisualDogfood } from "../src/features/hwpx/visualDogfood";
 import { publicNotionBlocksToDocumentBlocks } from "../src/features/notion-link/publicBlocks";
 import { cleanNotionLine } from "../src/features/notion-text/clean";
 // helper scripts are intentionally JS so the dev server and CLI share the same Notion reader.
@@ -30,81 +23,20 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const template = loadHwpxTemplate(await readFile(options.samplePath));
   const blocks = await readSourceBlocks(options);
-  const output = generateHwpx(template, blocks, { mode: "auto" });
-  const outputFiles = unzipSync(output);
-  const sectionXml = strFromU8(outputFiles["Contents/section0.xml"]);
-  const headerXml = strFromU8(outputFiles["Contents/header.xml"]);
-  const assignments = applyLayoutSafety(
-    assignHwpxStyles(template.formatGrammar, buildHwpxSourceStructure(blocks), template.styleMap)
-  );
-  const outputAudit = auditGeneratedHwpx({
+  const result = generateHwpxReport({
+    template,
     blocks,
-    assignments,
-    sectionXml,
-    headerXml,
-    titleTableCount: template.analysis.leadingTitleTableCount
-  });
-  const visualDogfood = analyzeHwpxVisualDogfood(headerXml, sectionXml);
-  const report = {
-    generatedAt: new Date().toISOString(),
     samplePath: options.samplePath,
     outputPath: options.outputPath,
-    source: {
-      url: options.sourceUrl,
-      blockCount: blocks.length,
-      tableRowCount: blocks.filter((block) => block.role === "tableRow").length,
-      imageCount: blocks.filter((block) => block.role === "image").length
-    },
-    template: {
-      paragraphCount: template.analysis.paragraphCount,
-      tableCount: template.analysis.tableCount,
-      titleTableCount: template.analysis.leadingTitleTableCount,
-      bodyTableCount: template.analysis.bodyTableCount,
-      grammarWarnings: template.formatGrammar.warnings,
-      tableMotifs: template.formatGrammar.tableMotifs,
-      roles: Object.fromEntries(Object.entries(template.formatGrammar.roles).map(([role, value]) => [
-        role,
-        value === undefined
-          ? null
-          : {
-              sampleText: value.sampleText,
-              style: value.style,
-              fontSizePt: value.fontSizePt,
-              charSpacing: value.charSpacing,
-              indent: value.paragraphMargins.intent,
-              reason: value.reason
-            }
-      ]))
-    },
-    quality: analyzeGenerationQuality(template, blocks),
-    outputAudit,
-    visualDogfood
-  };
+    sourceUrl: options.sourceUrl
+  });
 
   await mkdir(dirname(options.outputPath), { recursive: true });
   await mkdir(dirname(options.reportPath), { recursive: true });
-  await writeFile(options.outputPath, output);
-  await writeFile(options.reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  await writeFile(options.outputPath, result.output);
+  await writeFile(options.reportPath, `${JSON.stringify(result.report, null, 2)}\n`);
 
-  console.log(JSON.stringify({
-    outputPath: options.outputPath,
-    reportPath: options.reportPath,
-    blocks: blocks.length,
-    score: outputAudit.score,
-    passed: outputAudit.passed,
-    errors: outputAudit.issues.filter((issue) => issue.severity === "error").length,
-    warnings: outputAudit.issues.filter((issue) => issue.severity === "warning").length,
-    visualErrors: visualDogfood.issues.filter((issue) => issue.severity === "error").length,
-    visualWarnings: visualDogfood.issues.filter((issue) => issue.severity === "warning").length,
-    outputTables: outputAudit.summary.outputTables,
-    outputBodyTables: outputAudit.summary.outputBodyTables,
-    lineSegArrays: outputAudit.summary.outputLineSegArrays,
-    badBulletIndentCount: outputAudit.summary.badBulletIndentCount,
-    badNonBulletIndentCount: outputAudit.summary.badNonBulletIndentCount,
-    badBulletStyleIndentCount: outputAudit.summary.badBulletStyleIndentCount,
-    badNonBulletAutoHeadingCount: outputAudit.summary.badNonBulletAutoHeadingCount,
-    missingSourceTextCount: outputAudit.summary.missingSourceTextCount
-  }, null, 2));
+  console.log(JSON.stringify(buildGeneratedHwpxConsoleSummary(result.report, options.reportPath), null, 2));
 }
 
 function parseArgs(args: string[]): CliOptions {
