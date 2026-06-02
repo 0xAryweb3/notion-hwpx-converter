@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Notion HWPX Converter",
+  "description": "Convert a Notion export into a Korean HWPX document using an uploaded template.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Notion HWPX Converter"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["sidePanel", "downloads", "storage"],
+  "side_panel": {
+    "default_path": "index.html"
+  }
+}
