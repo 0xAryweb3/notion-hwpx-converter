@@ -3,7 +3,7 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last commit before this implementation batch: `495ca08` (`[docs] plan hancom manual review packet`)
+Last completed implementation commit: `f1221cc` (`[feat] add hancom manual review packet`)
 Remote: `origin` restored to `https://github.com/0xAryweb3/notion-hwpx-converter` (local git displays the SSH-rewritten URL).
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
@@ -13,7 +13,8 @@ Active plans:
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree currently contains the Hancom manual review packet implementation plus this handoff update. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and are not tracked.
+Working tree currently contains only this handoff update. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and are not tracked.
+Push status: `git push -u origin feat/codex-goals-workflow` failed because GitHub authenticated as `0xDorin`, which does not have push permission to `0xAryweb3/notion-hwpx-converter`.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner now creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
@@ -78,6 +79,8 @@ Implemented:
     - Output directory: `/tmp/hwp-qa-review-check`
     - Result: PASS, 1 sample, 0 failed samples, 0 output/visual warnings, 0 missing source text.
     - Confirmed `/tmp/hwp-qa-review-check/hancom-review.md` contains the expected review matrix and manual gate instructions.
+  - Committed implementation as `f1221cc` with `[feat] add hancom manual review packet`.
+  - Attempted `git push -u origin feat/codex-goals-workflow`; push failed with `Permission to 0xAryweb3/notion-hwpx-converter.git denied to 0xDorin`.
 - 2026-05-23 continuation:
   - Added `docs/superpowers/specs/2026-05-23-hancom-visual-qa-runner-design.md` and `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`.
   - Added `src/features/hwpx/qaRun.ts` and `src/test/hwpx-qa-run.test.ts` with RED/GREEN coverage for sample-spec parsing, repeated CLI samples, run-level pass/fail gates, and Markdown summary rendering.
@@ -312,7 +315,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Commit and push the Hancom manual review packet implementation. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/`, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
+Fix GitHub auth so this machine pushes as an account with write access to `0xAryweb3/notion-hwpx-converter`, then run `git push -u origin feat/codex-goals-workflow`. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/`, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.
