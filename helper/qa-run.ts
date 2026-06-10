@@ -9,6 +9,7 @@ import { generateHwpxReport } from "../src/features/hwpx/generationReport";
 import {
   buildQaRunSummary,
   parseQaRunArgs,
+  renderHancomReviewMarkdown,
   renderQaRunMarkdown
 } from "../src/features/hwpx/qaRun";
 import type { QaSampleInput } from "../src/features/hwpx/qaRun";
@@ -97,6 +98,8 @@ async function main(): Promise<void> {
 
   await writeFile(join(options.outputDir, "qa-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
   await writeFile(join(options.outputDir, "qa-summary.md"), `${renderQaRunMarkdown(summary)}\n`);
+  const hancomReviewPath = join(options.outputDir, "hancom-review.md");
+  await writeFile(hancomReviewPath, `${renderHancomReviewMarkdown(summary)}\n`);
 
   console.log(JSON.stringify({
     outputDir: options.outputDir,
@@ -108,7 +111,8 @@ async function main(): Promise<void> {
     visualErrors: summary.totals.visualErrors,
     visualWarnings: summary.totals.visualWarnings,
     missingSourceTextCount: summary.totals.missingSourceTextCount,
-    summaryPath: join(options.outputDir, "qa-summary.md")
+    summaryPath: join(options.outputDir, "qa-summary.md"),
+    hancomReviewPath
   }, null, 2));
 }
 

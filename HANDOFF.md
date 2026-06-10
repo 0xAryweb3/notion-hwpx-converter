@@ -3,16 +3,18 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last commit: `[feat] add hwpx qa runner cli`
+Last commit before this implementation batch: `495ca08` (`[docs] plan hancom manual review packet`)
+Remote: `origin` restored to `https://github.com/0xAryweb3/notion-hwpx-converter` (local git displays the SSH-rewritten URL).
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
+- `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`
 - `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`
 - `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree currently only needs this handoff update. The new QA runner artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-current/`; external artifacts are not tracked.
-Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and direct Hancom screenshot capture works when the user grants screen-recording permission. However app-control automation through `System Events` was previously denied, and a low-level PageDown attempt produced black screenshots, so repeatable later-page Hancom visual review is still limited. Do not mark the active goal complete until later-page Hancom visual review and broader sample coverage are done.
+Working tree currently contains the Hancom manual review packet implementation plus this handoff update. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and are not tracked.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner now creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -57,8 +59,25 @@ Implemented:
 - Added `helper/qa-run.ts`, a batch QA runner that generates `.hwpx`, `.json`, `.svg`, `qa-summary.json`, and `qa-summary.md` for multiple samples from one source.
 - Added `src/features/hwpx/generationReport.ts` so single-sample and batch generation share the same report-building logic.
 - Added `src/features/hwpx/qaRun.ts` for sample-spec parsing, QA gate aggregation, and Markdown summary rendering.
+- The QA runner now writes `hancom-review.md`, a manual Hancom evidence packet with per-sample page-count, first-page, later-page, screenshot-path, and notes fields. `qa-summary.md` links to this packet, and helper stdout includes `hancomReviewPath`.
 
 ## What Was Tried
+- 2026-06-10 continuation:
+  - Confirmed the local git remote was missing, then restored `origin` to `https://github.com/0xAryweb3/notion-hwpx-converter`; local git displays the SSH-rewritten remote.
+  - Added `docs/superpowers/specs/2026-06-10-hancom-manual-review-packet-design.md` and `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`, committed as `495ca08` with `[docs] plan hancom manual review packet`.
+  - Added `renderHancomReviewMarkdown()` in `src/features/hwpx/qaRun.ts`.
+  - Updated `renderQaRunMarkdown()` so `qa-summary.md` links to `${artifactsDir}/hancom-review.md`.
+  - Updated `helper/qa-run.ts` to write `hancom-review.md` and include `hancomReviewPath` in the console JSON.
+  - Updated README Batch QA docs to describe the manual Hancom checklist.
+  - Verification so far:
+    - `npm test -- src/test/hwpx-qa-run.test.ts`: 7 tests passed.
+    - `npm test`: 16 files / 133 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+  - Smoke-tested the CLI with `--source-text` and `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` as the sample template:
+    - Output directory: `/tmp/hwp-qa-review-check`
+    - Result: PASS, 1 sample, 0 failed samples, 0 output/visual warnings, 0 missing source text.
+    - Confirmed `/tmp/hwp-qa-review-check/hancom-review.md` contains the expected review matrix and manual gate instructions.
 - 2026-05-23 continuation:
   - Added `docs/superpowers/specs/2026-05-23-hancom-visual-qa-runner-design.md` and `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`.
   - Added `src/features/hwpx/qaRun.ts` and `src/test/hwpx-qa-run.test.ts` with RED/GREEN coverage for sample-spec parsing, repeated CLI samples, run-level pass/fail gates, and Markdown summary rendering.
@@ -293,7 +312,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Commit this handoff update. Next concrete action: use `/Users/hyeon/Desktop/hwp-result/qa-current/qa-summary.md` as the baseline, then add manual Hancom screenshot notes or OCR-based screenshot checks only for cases where the user visually flags a generated output.
+Commit and push the Hancom manual review packet implementation. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/`, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.

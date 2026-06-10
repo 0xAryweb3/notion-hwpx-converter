@@ -3,6 +3,7 @@ import {
   buildQaRunSummary,
   parseQaRunArgs,
   parseQaSampleSpec,
+  renderHancomReviewMarkdown,
   renderQaRunMarkdown
 } from "../features/hwpx/qaRun";
 
@@ -119,5 +120,52 @@ describe("HWPX QA run", () => {
     expect(markdown).toContain("sample-a");
     expect(markdown).toContain("/tmp/hwp-qa/sample-a.hwpx");
     expect(markdown).toContain("pageBottomTightRiskCount");
+    expect(markdown).toContain("hancom-review.md");
+  });
+
+  it("renders a Hancom manual review packet with editable evidence fields", () => {
+    const summary = buildQaRunSummary({
+      generatedAt: "2026-06-10T00:00:00.000Z",
+      source: { url: "https://example.notion.site/page", blockCount: 3 },
+      artifactsDir: "/tmp/hwp-qa",
+      samples: [
+        {
+          label: "7-8",
+          samplePath: "/tmp/sample-7-8.hwpx",
+          outputPath: "/tmp/hwp-qa/7-8.hwpx",
+          reportPath: "/tmp/hwp-qa/7-8.json",
+          svgPath: "/tmp/hwp-qa/7-8.svg",
+          outputAudit: { passed: true, errors: 0, warnings: 0 },
+          visualDogfood: {
+            errors: 0,
+            warnings: 0,
+            pageCount: 2,
+            pageOverflowRiskCount: 0,
+            pageBottomTightRiskCount: 0
+          },
+          counts: {
+            outputTables: 8,
+            outputBodyTables: 6,
+            missingSourceTextCount: 0,
+            badBulletIndentCount: 0,
+            badNonBulletIndentCount: 0,
+            badBulletStyleIndentCount: 0,
+            badNonBulletAutoHeadingCount: 0
+          }
+        }
+      ]
+    });
+
+    const markdown = renderHancomReviewMarkdown(summary);
+
+    expect(markdown).toContain("# Hancom Manual Review");
+    expect(markdown).toContain("/tmp/hwp-qa/7-8.hwpx");
+    expect(markdown).toContain("/tmp/hwp-qa/7-8.json");
+    expect(markdown).toContain("/tmp/hwp-qa/7-8.svg");
+    expect(markdown).toContain("Expected proxy pages");
+    expect(markdown).toContain("Hancom page count");
+    expect(markdown).toContain("Later pages status");
+    expect(markdown).toContain("Screenshot path");
+    expect(markdown).toContain("Inspect every page after page 1");
   });
 });
