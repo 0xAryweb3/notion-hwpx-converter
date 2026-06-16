@@ -53,6 +53,7 @@ const sectionNamespace =
   'xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"';
 const pageBottomHeadroomReserve = 4000;
 const sourceImageBottomHeadroomReserve = 4000;
+const tableParagraphGapReserve = 1200;
 
 export function generateHwpx(template: HwpxTemplate, blocks: DocumentBlock[], options: GenerateHwpxOptions = {}): Uint8Array {
   const files: Record<string, Uint8Array> = {};
@@ -1808,8 +1809,14 @@ function readTableLayoutReserveHeight(layoutState: LineLayoutState, tableXml: st
   const height = readTableHeight(tableXml) ??
     layoutState.defaultMetrics.textHeight + layoutState.defaultMetrics.spacing;
   const lineStep = layoutState.defaultMetrics.textHeight + layoutState.defaultMetrics.spacing;
+  const outMarginHeight = readTableOutMarginHeight(tableXml);
+  const lineBoxHeight = readLineSegBottom(tableXml);
 
-  return Math.max(height, lineStep) + Math.floor(lineStep / 2);
+  return Math.max(
+    height + outMarginHeight + tableParagraphGapReserve,
+    lineBoxHeight + tableParagraphGapReserve,
+    lineStep
+  );
 }
 
 function readTableHeight(tableXml: string): number | null {
@@ -1826,6 +1833,12 @@ function readTableHeight(tableXml: string): number | null {
   const maxCellHeight = Math.max(0, ...cellHeights);
 
   return maxCellHeight > 0 ? maxCellHeight : null;
+}
+
+function readTableOutMarginHeight(tableXml: string): number {
+  const marginAttrs = tableXml.match(/<hp:outMargin\b([^>]*)\/>/)?.[1] ?? "";
+
+  return readNumberAttribute(marginAttrs, "top", 0) + readNumberAttribute(marginAttrs, "bottom", 0);
 }
 
 function selectTableTemplate(tableTemplates: TableTemplate[], rows: string[][]): TableTemplate | undefined {

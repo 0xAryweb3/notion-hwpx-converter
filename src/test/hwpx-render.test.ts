@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { generateHwpx } from "../features/hwpx/render";
 import { loadHwpxTemplate } from "../features/hwpx/template";
+import { analyzeHwpxVisualDogfood } from "../features/hwpx/visualDogfood";
 import type { DocumentBlock } from "../features/document/types";
 
 describe("HWPX rendering", () => {
@@ -756,6 +757,27 @@ describe("HWPX rendering", () => {
     expect(sectionXml).not.toContain("샘플 표 머리");
     expect(sectionXml).not.toContain("샘플 표 본문");
     expectValidXml(sectionXml);
+  });
+
+  it("leaves Hancom-safe spacing after generated structure tables", () => {
+    const template = loadHwpxTemplate(withSectionReplacement(
+      createStructureTableTemplateZip(),
+      '<hp:tbl id="lead-heading-table" rowCnt="1" colCnt="1">',
+      '<hp:tbl id="lead-heading-table" rowCnt="1" colCnt="1"><hp:outMargin top="0" bottom="2500"/>'
+    ));
+    const output = unzipSync(
+      generateHwpx(template, [
+        { id: "block-1", role: "title", text: "울산광역시 탄소중립지원센터 BRIEF 통권 제9호(2026년 5월)" },
+        { id: "block-2", role: "body", text: "2026년 울산광역시 탄소중립지원센터 사업 소개" },
+        { id: "block-3", role: "section", text: "1. 새 본문 제목" }
+      ])
+    );
+    const report = analyzeHwpxVisualDogfood(
+      strFromU8(output["Contents/header.xml"]),
+      strFromU8(output["Contents/section0.xml"])
+    );
+
+    expect(report.summary.tableParagraphGapRiskCount).toBe(0);
   });
 
   it("removes automatic Hancom heading metadata from generated structure table paragraphs", () => {
