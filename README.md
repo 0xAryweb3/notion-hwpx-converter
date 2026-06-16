@@ -99,7 +99,7 @@ node_modules/.bin/vite-node helper/generate-local.ts \
   --report "/Users/hyeon/Desktop/hwp-result/rules-output.json"
 ```
 
-The JSON report includes a post-generation `outputAudit` with a score, pass/fail status, source coverage checks, output table/image counts, red style usage, line-layout cache counts, wrapped-bullet indentation checks, and long-paragraph overflow warnings.
+The JSON report includes a post-generation `outputAudit` with a score, pass/fail status, source coverage checks, output table/image counts, red style usage, line-layout cache counts, wrapped-bullet indentation checks, long-paragraph overflow warnings, and a `hancomReflowRiskCount` for deterministic Hancom-visible layout risks.
 
 ## Batch QA
 
