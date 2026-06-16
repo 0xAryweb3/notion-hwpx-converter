@@ -24,6 +24,7 @@ export interface GeneratedHwpxReport {
   generatedAt: string;
   samplePath: string;
   outputPath: string;
+  hancomReflowRiskCount: number;
   source: {
     url?: string;
     blockCount: number;
@@ -67,6 +68,7 @@ export interface GeneratedHwpxConsoleSummary {
   warnings: number;
   visualErrors: number;
   visualWarnings: number;
+  hancomReflowRiskCount: number;
   outputTables: number;
   outputBodyTables: number;
   lineSegArrays: number;
@@ -103,10 +105,12 @@ export function generateHwpxReport(options: GenerateHwpxReportOptions): Generate
     titleTableCount: options.template.analysis.leadingTitleTableCount
   });
   const visualDogfood = analyzeHwpxVisualDogfood(headerXml, sectionXml);
+  const hancomReflowRiskCount = countHancomReflowRisks(outputAudit, visualDogfood);
   const report: GeneratedHwpxReport = {
     generatedAt: new Date().toISOString(),
     samplePath: options.samplePath,
     outputPath: options.outputPath,
+    hancomReflowRiskCount,
     source: {
       url: options.sourceUrl,
       blockCount: options.blocks.length,
@@ -160,6 +164,7 @@ export function buildGeneratedHwpxConsoleSummary(
     warnings: report.outputAudit.issues.filter((issue) => issue.severity === "warning").length,
     visualErrors: report.visualDogfood.issues.filter((issue) => issue.severity === "error").length,
     visualWarnings: report.visualDogfood.issues.filter((issue) => issue.severity === "warning").length,
+    hancomReflowRiskCount: report.hancomReflowRiskCount,
     outputTables: report.outputAudit.summary.outputTables,
     outputBodyTables: report.outputAudit.summary.outputBodyTables,
     lineSegArrays: report.outputAudit.summary.outputLineSegArrays,
@@ -169,4 +174,27 @@ export function buildGeneratedHwpxConsoleSummary(
     badNonBulletAutoHeadingCount: report.outputAudit.summary.badNonBulletAutoHeadingCount,
     missingSourceTextCount: report.outputAudit.summary.missingSourceTextCount
   };
+}
+
+export function countHancomReflowRisks(
+  outputAudit: GeneratedOutputAudit,
+  visualDogfood: VisualDogfoodReport
+): number {
+  const auditRiskCodes = new Set([
+    "paragraph-overflow-risk",
+    "page-line-overflow"
+  ]);
+  const visualRiskCodes = new Set([
+    "page-overflow-risk",
+    "page-bottom-tight-risk",
+    "vertical-overlap-risk",
+    "missing-blank-after-bullet-group",
+    "bullet-continuation-indent-risk",
+    "justify-spacing-risk",
+    "short-wrapped-tail-risk",
+    "table-paragraph-gap-risk"
+  ]);
+
+  return outputAudit.issues.filter((issue) => auditRiskCodes.has(issue.code)).length +
+    visualDogfood.issues.filter((issue) => visualRiskCodes.has(issue.code)).length;
 }

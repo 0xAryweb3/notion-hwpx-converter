@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import type { DocumentBlock } from "../features/document/types";
-import { generateHwpxReport } from "../features/hwpx/generationReport";
+import { buildGeneratedHwpxConsoleSummary, generateHwpxReport } from "../features/hwpx/generationReport";
 import { loadHwpxTemplate } from "../features/hwpx/template";
 import { publicNotionBlocksToDocumentBlocks } from "../features/notion-link/publicBlocks";
 
@@ -63,8 +63,87 @@ describe("generate-local source normalization", () => {
     expect(result.output.byteLength).toBeGreaterThan(0);
     expect(result.report.outputAudit.passed).toBe(true);
     expect(result.report.visualDogfood.summary.pageOverflowRiskCount).toBe(0);
+    expect(result.report.hancomReflowRiskCount).toBe(0);
     expect(result.consoleSummary.score).toBe(result.report.outputAudit.score);
+    expect(result.consoleSummary.hancomReflowRiskCount).toBe(0);
     expect(result.consoleSummary.missingSourceTextCount).toBe(0);
+  });
+
+  it("counts deterministic Hancom reflow risks in the generated report summary", () => {
+    const report = buildGeneratedHwpxConsoleSummary({
+      generatedAt: "2026-06-17T00:00:00.000Z",
+      samplePath: "/tmp/sample.hwpx",
+      outputPath: "/tmp/output.hwpx",
+      hancomReflowRiskCount: 3,
+      source: { blockCount: 1, tableRowCount: 0, imageCount: 0 },
+      template: {
+        paragraphCount: 1,
+        tableCount: 0,
+        titleTableCount: 0,
+        bodyTableCount: 0,
+        grammarWarnings: [],
+        tableMotifs: {},
+        roles: {}
+      },
+      quality: {
+        inputTableGroupCount: 0,
+        inputTableRowCount: 0,
+        structureTableAssignmentCount: 0,
+        issues: [],
+        assignmentRows: []
+      },
+      outputAudit: {
+        score: 100,
+        passed: true,
+        summary: {
+          sourceBlocks: 1,
+          sourceTableGroups: 0,
+          outputParagraphs: 1,
+          outputTables: 0,
+          outputTitleTables: 0,
+          outputBodyTables: 0,
+          outputPictures: 0,
+          outputContainers: 0,
+          outputLineSegArrays: 1,
+          outputLineSegs: 1,
+          redRunCount: 0,
+          nonBlackGeneratedRunCount: 0,
+          badBulletIndentCount: 0,
+          badNonBulletIndentCount: 0,
+          badBulletStyleIndentCount: 0,
+          badNonBulletAutoHeadingCount: 0,
+          missingSourceTextCount: 0,
+          overflowRiskCount: 0,
+          pageOverflowCount: 0
+        },
+        issues: []
+      },
+      visualDogfood: {
+        paragraphs: [],
+        tables: [],
+        issues: [],
+        summary: {
+          paragraphs: 0,
+          nonEmptyParagraphs: 0,
+          tables: 0,
+          nonEmptyTables: 0,
+          nonBlackGeneratedTextCount: 0,
+          bulletNegativeIndentStyleCount: 0,
+          bulletContinuationIndentRiskCount: 0,
+          justifySpacingRiskCount: 0,
+          missingBlankAfterBulletGroupCount: 0,
+          verticalOverlapRiskCount: 0,
+          pageOverflowRiskCount: 0,
+          pageBottomTightRiskCount: 0,
+          shortWrappedTailRiskCount: 0,
+          tableParagraphGapRiskCount: 0,
+          pageCount: 1,
+          pageContentHeight: 10000
+        }
+      }
+    });
+
+    expect(report.hancomReflowRiskCount).toBe(3);
   });
 });
 

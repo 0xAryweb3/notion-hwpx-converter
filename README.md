@@ -99,11 +99,11 @@ node_modules/.bin/vite-node helper/generate-local.ts \
   --report "/Users/hyeon/Desktop/hwp-result/rules-output.json"
 ```
 
-The JSON report includes a post-generation `outputAudit` with a score, pass/fail status, source coverage checks, output table/image counts, red style usage, line-layout cache counts, wrapped-bullet indentation checks, and long-paragraph overflow warnings.
+The JSON report includes a post-generation `outputAudit` with a score, pass/fail status, source coverage checks, output table/image counts, red style usage, line-layout cache counts, wrapped-bullet indentation checks, long-paragraph overflow warnings, and a `hancomReflowRiskCount` for deterministic Hancom-visible layout risks.
 
 ## Batch QA
 
-For repeatable multi-sample checks, run the QA runner. It generates one HWPX, one JSON report, and one SVG visual preview per sample, plus `qa-summary.json` and `qa-summary.md`.
+For repeatable multi-sample checks, run the QA runner. It generates one HWPX, one JSON report, and one SVG visual preview per sample, plus `qa-summary.json`, `qa-summary.md`, and `hancom-review.md`.
 
 ```bash
 node_modules/.bin/vite-node helper/qa-run.ts \
@@ -115,6 +115,8 @@ node_modules/.bin/vite-node helper/qa-run.ts \
 ```
 
 Add `--open-hancom` to open each generated HWPX in Hancom Viewer after writing it. The QA summary does not depend on Hancom automation; it uses deterministic output audit and visual-dogfood checks.
+
+Use `hancom-review.md` as the manual Hancom checklist. Open each generated HWPX, record Hancom's actual page count, inspect page 1 and later pages, and attach screenshot paths or notes for any mismatch. This is separate from the deterministic JSON/SVG gate because Hancom can reflow pages differently.
 
 ## Load in Chrome
 

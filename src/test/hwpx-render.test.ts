@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { generateHwpx } from "../features/hwpx/render";
 import { loadHwpxTemplate } from "../features/hwpx/template";
+import { analyzeHwpxVisualDogfood } from "../features/hwpx/visualDogfood";
 import type { DocumentBlock } from "../features/document/types";
 
 describe("HWPX rendering", () => {
@@ -207,10 +208,32 @@ describe("HWPX rendering", () => {
         }))
       )
     );
-    const fifthParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "본문 5");
+    const sectionXml = sectionXmlFromOutput(output);
+    const fourthParagraph = paragraphXmlByText(sectionXml, "본문 4");
+    const fifthParagraph = paragraphXmlByText(sectionXml, "본문 5");
 
-    expect(fifthParagraph).toContain('pageBreak="1"');
+    expect(fourthParagraph).toContain('pageBreak="1"');
+    expect(firstLineVertPos(fourthParagraph)).toBeLessThanOrEqual(2000);
+    expect(fifthParagraph).toContain('pageBreak="0"');
     expect(firstLineVertPos(fifthParagraph)).toBeLessThanOrEqual(2000);
+  });
+
+  it("starts generated content on a new page when it would leave less than Hancom-safe headroom", () => {
+    const template = loadHwpxTemplate(createPaginationTemplateZip());
+    const output = unzipSync(
+      generateHwpx(
+        template,
+        Array.from({ length: 4 }, (_, index) => ({
+          id: `block-${index + 1}`,
+          role: "body" as const,
+          text: `본문 ${index + 1}`
+        }))
+      )
+    );
+    const fourthParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "본문 4");
+
+    expect(fourthParagraph).toContain('pageBreak="1"');
+    expect(firstLineVertPos(fourthParagraph)).toBeLessThanOrEqual(2000);
   });
 
   it("uses the full section page height when paginating generated body after a title region", () => {
@@ -734,6 +757,27 @@ describe("HWPX rendering", () => {
     expect(sectionXml).not.toContain("샘플 표 머리");
     expect(sectionXml).not.toContain("샘플 표 본문");
     expectValidXml(sectionXml);
+  });
+
+  it("leaves Hancom-safe spacing after generated structure tables", () => {
+    const template = loadHwpxTemplate(withSectionReplacement(
+      createStructureTableTemplateZip(),
+      '<hp:tbl id="lead-heading-table" rowCnt="1" colCnt="1">',
+      '<hp:tbl id="lead-heading-table" rowCnt="1" colCnt="1"><hp:outMargin top="0" bottom="2500"/>'
+    ));
+    const output = unzipSync(
+      generateHwpx(template, [
+        { id: "block-1", role: "title", text: "울산광역시 탄소중립지원센터 BRIEF 통권 제9호(2026년 5월)" },
+        { id: "block-2", role: "body", text: "2026년 울산광역시 탄소중립지원센터 사업 소개" },
+        { id: "block-3", role: "section", text: "1. 새 본문 제목" }
+      ])
+    );
+    const report = analyzeHwpxVisualDogfood(
+      strFromU8(output["Contents/header.xml"]),
+      strFromU8(output["Contents/section0.xml"])
+    );
+
+    expect(report.summary.tableParagraphGapRiskCount).toBe(0);
   });
 
   it("removes automatic Hancom heading metadata from generated structure table paragraphs", () => {

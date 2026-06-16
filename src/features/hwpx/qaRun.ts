@@ -194,6 +194,7 @@ export function renderQaRunMarkdown(summary: QaRunSummary): string {
     `- Source: ${sourceLabel}`,
     `- Source blocks: ${summary.source.blockCount}`,
     `- Artifacts: ${summary.artifactsDir}`,
+    `- Hancom manual review packet: ${summary.artifactsDir}/hancom-review.md`,
     `- Result: ${summary.passed ? "PASS" : "FAIL"}`,
     "",
     "| Sample | Result | Output errors/warnings | Visual errors/warnings | Pages | Tables | Missing source | HWPX | SVG |",
@@ -212,6 +213,42 @@ export function renderQaRunMarkdown(summary: QaRunSummary): string {
     "## Failures",
     "",
     failures.length === 0 ? "- None" : failures
+  ].join("\n");
+}
+
+export function renderHancomReviewMarkdown(summary: QaRunSummary): string {
+  const rows = summary.samples.map((sample) =>
+    `| ${sample.label} | ${sample.visualDogfood.pageCount} |  |  |  |  |  | ${sample.outputPath} | ${sample.reportPath} | ${sample.svgPath} |`
+  ).join("\n");
+
+  return [
+    "# Hancom Manual Review",
+    "",
+    `- Generated at: ${summary.generatedAt}`,
+    `- Source: ${summary.source.url ?? "source text"}`,
+    `- Deterministic QA result: ${summary.passed ? "PASS" : "FAIL"}`,
+    `- Artifacts: ${summary.artifactsDir}`,
+    "",
+    "## Procedure",
+    "",
+    "1. Open each generated HWPX in Hancom Viewer.",
+    "2. Record Hancom's actual page count, even when it differs from the expected proxy pages.",
+    "3. Verify page 1 for title tables, readable text, bullet indentation, and missing content.",
+    "4. Inspect every page after page 1 for overflow, unexpected blank pages, bad wrapping, non-black generated text, and missing section titles.",
+    "5. Compare suspicious pages against the SVG preview and JSON report.",
+    "6. Add screenshot paths for any issue or for the final accepted evidence.",
+    "",
+    "## Review Matrix",
+    "",
+    "| Sample | Expected proxy pages | Hancom page count | Page 1 status | Later pages status | Screenshot path | Reviewer notes | HWPX | JSON | SVG |",
+    "| --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+    rows,
+    "",
+    "## Manual Gate",
+    "",
+    "- PASS only when every sample has page 1 and later pages marked acceptable.",
+    "- Record any Hancom page-count mismatch in Reviewer notes.",
+    "- Leave the deterministic QA result unchanged; this manual gate is separate evidence."
   ].join("\n");
 }
 

@@ -1,0 +1,351 @@
+## Goal
+Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
+
+## Current Status
+Branch: `feat/codex-goals-workflow`
+Current HEAD: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
+Last completed implementation commit: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
+Remote: `origin` restored to `https://github.com/0xAryweb3/notion-hwpx-converter` (local git displays the SSH-rewritten URL).
+Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
+Active plans:
+- `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`
+- `docs/superpowers/plans/2026-06-17-hwpx-hancom-safe-layout.md`
+- `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`
+- `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
+- `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
+- `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
+Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
+Working tree was clean at the start of the 2026-06-17 context-save session. After the Hancom-safe layout session, only `HANDOFF.md` is expected to be modified unless the user commits it. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and `/tmp/hwpx-hancom-safe-smoke.*` and are not tracked.
+Push status: `git push -u origin feat/codex-goals-workflow` failed because GitHub authenticated as `0xDorin`, which does not have push permission to `0xAryweb3/notion-hwpx-converter`.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner now creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
+
+Implemented:
+- Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
+- Document role detection for title, notice number, body, `1.`, `가.`, `-`, and `※`.
+- Notion export parsing for `.zip`, `.md`, `.markdown`, `.html`, and `.htm`.
+- Public Notion URL import through the local helper at `POST /notion/public`.
+- HWPX template loading and section rendering by reusing template paragraph/character style references.
+- Side panel UI for template upload, content upload/paste, block role editing, and HWPX download.
+- Review fixes for date detection, notice-number-then-title detection, first-match style inference, and generated preview text.
+- Accuracy comparison path: rule-only output and Codex CLI-assisted output via local helper.
+- Localhost helper fixes for Chrome private-network preflight and Codex child-process `EPIPE` crashes.
+- Generated HWPX now writes fresh `hp:linesegarray` layout caches for new paragraphs, using sample-derived line height, width, and flags so Hancom does not overlap wrapped paragraphs.
+- Legacy body-regeneration modes still exist internally for comparison, but the default UI path no longer exposes them.
+- The panel now has `표 글자 스타일` controls for table title/body font family, font size, character spacing, and bold. Font family is selected from fonts declared in the uploaded sample HWPX.
+- The default UI path is now content-driven: preserve the sample title area, generate the body from input blocks, clone sample body tables only when the input contains table rows, and remove sample body tables when the input has no table rows.
+- Template raster graphics are dropped by default and pruned from `BinData/*` plus `Contents/content.hpf`, because sample images may contain stale baked-in text that cannot be replaced through HWPX text slots.
+- Notion-source images are now represented as `image` document blocks. Markdown/HTML/ZIP Notion exports can resolve image bytes, public Notion helper responses can return structured image blocks, and HWPX generation embeds available source image bytes as `BinData/source-image-*`.
+- Template Analyzer v2 is now attached to every loaded HWPX template as `formatProfile`. It deterministically extracts page margins, paragraph style metrics, character style metrics, table/cell metrics, image counts, and text slots before any rule-based or Codex-assisted matching.
+- The side panel now includes a measured formatting dashboard. Users can inspect page dimensions/margins, paragraph/character style counts, text-slot counts, first table/cell metrics, and role-to-style measurements before generating an HWPX.
+- The internal full-template text-slot replacement path now uses measured XML element ranges instead of regex paragraph matching. This avoids corrupting table/nested paragraph structures when replacing sample text.
+- The internal preserved-template path removes stale sample `hp:linesegarray` layout caches after text replacement, so Hancom can recalculate line breaks for the new text while keeping paragraph, character, page, table, and cell styles.
+- Layout safety now runs after deterministic style assignment and before auto-body rendering. It splits very long body/bullet/news-bullet assignments into smaller paragraphs while preserving original `auditText` for coverage inspection.
+- Non-bullet roles (`bodyHeading`, `bodyParagraph`, `newsTitle`) no longer borrow negative hanging-indent paragraph styles. When the best sample text carries a negative `hc:intent`, the grammar keeps the measured character style but normalizes only the paragraph style to a non-centered, non-table, nonnegative paragraph style.
+- The generated-output audit now fails if a non-bullet paragraph uses a hanging-indent paragraph style, so this regression cannot pass with a score of 100.
+- Generated body/category/news roles now normalize away from non-black character styles. If a sample body role uses blue text, the generated role keeps the closest readable black character style instead.
+- Generated auto-body bullet/news-bullet roles now clone their sample paragraph style into an output-only paragraph style with positive `left` and zero `intent`, so the generated HWPX no longer uses a negative hanging-indent paragraph style for bullets.
+- Bullet groups now insert a real empty paragraph before the next non-bullet generated block instead of relying only on line-layout cache spacing.
+- The generated-output audit now fails if a generated bullet paragraph still uses a negative-intent paragraph style.
+- Visual dogfood audit now reads HWPX line segments page-by-page, ignores nested title-table text for body overlap checks, detects non-black generated text, page overflow, negative bullet styles, and wrapped-bullet continuation lines that fail to indent after the bullet marker.
+- Local generation now preserves structured public Notion image blocks through a shared `src/features/notion-link/publicBlocks.ts` converter, so CLI and UI import paths do not drift.
+- Appended source-image paragraphs are page-aware and start on a new page when the current page has no room.
+- Generated wrapped line positions now prefer whitespace boundaries, reducing ugly mid-word breaks in the dogfood preview and HWPX line-cache hints.
+- Generated body paragraph styles now clone `JUSTIFY` paragraph styles into output-only `LEFT` paragraph styles. Character spacing remains sample-derived; this specifically prevents Hancom from stretching spaces between word groups in generated body text.
+- Visual dogfood audit now reports `justify-spacing-risk` when a generated top-level paragraph still uses `JUSTIFY` with spaced text.
+- Generated paragraph styles now clone any sample `hh:heading` metadata into output-only plain paragraph styles with `type="NONE"`, preventing Hancom from drawing automatic bullets on generated headings such as `울산 소식`.
+- Generated-output audit now reports `non-bullet-auto-heading` and includes `badNonBulletAutoHeadingCount` so this Hancom-only bullet regression fails before manual review.
+- The quality report now exposes assignment `textColor`, `indentKind`, `indentValue`, and user-facing `indentLabel`, so bullet rows show `글머리 들여쓰기` instead of misleading negative `내어쓰기` values.
+- The UI assignment report now shows all mapping rows in a scrollable table and marks `structureTable` rows with `· 표`, so later Notion sections such as `울산 소식`, `센터 소식`, and news titles are inspectable.
+- Visual dogfood now reports `page-bottom-tight-risk` and `pageBottomTightRiskCount` when a page has less than `2000hu` of bottom headroom, because Hancom may reflow that page into an extra page.
+- Visual dogfood now includes top/bottom geometry for generated tables in page-overflow and page-bottom-headroom checks.
+- The renderer now moves generated paragraphs and generated structure tables to a new page when they would leave less than `2000hu` of page-bottom headroom.
+- Added `helper/qa-run.ts`, a batch QA runner that generates `.hwpx`, `.json`, `.svg`, `qa-summary.json`, and `qa-summary.md` for multiple samples from one source.
+- Added `src/features/hwpx/generationReport.ts` so single-sample and batch generation share the same report-building logic.
+- Added `src/features/hwpx/qaRun.ts` for sample-spec parsing, QA gate aggregation, and Markdown summary rendering.
+- The QA runner now writes `hancom-review.md`, a manual Hancom evidence packet with per-sample page-count, first-page, later-page, screenshot-path, and notes fields. `qa-summary.md` links to this packet, and helper stdout includes `hancomReviewPath`.
+- Added HWPX-only Hancom-safe layout reporting. Local generation JSON/console summaries now expose `hancomReflowRiskCount`, derived from deterministic output-audit and visual-dogfood risks.
+- Visual dogfood now reports `short-wrapped-tail-risk` and `table-paragraph-gap-risk`, with summary counts for both, so short accidental-looking final lines and crowded table-to-paragraph spacing are visible in QA reports.
+- The default HWPX renderer now uses a stricter `4000hu` page-bottom headroom reserve for generated paragraphs/tables and source images.
+- Generated structure table layout reservation now accounts for table out-margins, cloned table line boxes, and a `1200hu` following-gap reserve.
+- README documents `hancomReflowRiskCount` in local generation reports.
+
+## What Was Tried
+- 2026-06-17 Hancom-safe HWPX layout session:
+  - User clarified the product remains HWPX-only and that the priority is conversion quality, not UI polish or alternate formats.
+  - Added and committed `docs/superpowers/specs/2026-06-17-hwpx-hancom-safe-layout-design.md` (`004d7f9`) and `docs/superpowers/plans/2026-06-17-hwpx-hancom-safe-layout.md` (`88c81d1`).
+  - Added `hancomReflowRiskCount` to `GeneratedHwpxReport` and `GeneratedHwpxConsoleSummary` via `countHancomReflowRisks()` (`b113104`).
+  - Added visual-dogfood checks for `short-wrapped-tail-risk` and `table-paragraph-gap-risk` (`cf140e2`).
+  - Tightened generated HWPX page-bottom reserves from `2000hu` to `4000hu`, including source image placement (`e89c61c`).
+  - Fixed the generated-report test fixture shape after TypeScript build caught drift from the new visual summary fields (`4844fd2`).
+  - Documented `hancomReflowRiskCount` in README (`21c4504`).
+  - Added a renderer regression for generated structure-table spacing and reserved structure-table layout using table out-margins, cloned line boxes, and a `1200hu` following-gap reserve (`1dfd6a5`).
+  - Verification:
+    - Baseline `npm test`: 16 files / 133 tests passed before implementation.
+    - Final `npm test`: 16 files / 138 tests passed.
+    - Final `npm run build`: passed.
+    - Final `git diff --check`: passed.
+  - Smoke generation with `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` and a short source text wrote `/tmp/hwpx-hancom-safe-smoke.hwpx` plus `.json`. Output audit passed with score 100 and no missing source text. The smoke still reported `hancomReflowRiskCount: 1` for `table-paragraph-gap-risk` when using this already-generated HWPX as the sample, indicating the detector is exposing a duplicated/anchored table-paragraph pattern that should be investigated on original BRIEF samples.
+- 2026-06-17 context save:
+  - User asked to record the current state before restarting the session.
+  - Confirmed branch `feat/codex-goals-workflow`, clean working tree before this handoff edit, and HEAD `49a5829` (`[docs] record push auth blocker`).
+  - Confirmed remote shows as `git@github.com:0xAryweb3/notion-hwpx-converter` for fetch and push due local git URL rewriting.
+  - No implementation changes were made and no tests were run in this save-only session.
+  - A gstack checkpoint was saved at `/Users/hyeon/.gstack/projects/hwp/checkpoints/20260617-035735-hwpx-session-handoff.md`.
+  - Next concrete action: resume from this `HANDOFF.md` or `/context-restore`, then choose the next improvement target; the strongest current candidate remains reliable Hancom-rendered later-page evidence or filling the manual `hancom-review.md` packet for the real BRIEF samples.
+- 2026-06-10 continuation:
+  - Confirmed the local git remote was missing, then restored `origin` to `https://github.com/0xAryweb3/notion-hwpx-converter`; local git displays the SSH-rewritten remote.
+  - Added `docs/superpowers/specs/2026-06-10-hancom-manual-review-packet-design.md` and `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`, committed as `495ca08` with `[docs] plan hancom manual review packet`.
+  - Added `renderHancomReviewMarkdown()` in `src/features/hwpx/qaRun.ts`.
+  - Updated `renderQaRunMarkdown()` so `qa-summary.md` links to `${artifactsDir}/hancom-review.md`.
+  - Updated `helper/qa-run.ts` to write `hancom-review.md` and include `hancomReviewPath` in the console JSON.
+  - Updated README Batch QA docs to describe the manual Hancom checklist.
+  - Verification so far:
+    - `npm test -- src/test/hwpx-qa-run.test.ts`: 7 tests passed.
+    - `npm test`: 16 files / 133 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+  - Smoke-tested the CLI with `--source-text` and `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` as the sample template:
+    - Output directory: `/tmp/hwp-qa-review-check`
+    - Result: PASS, 1 sample, 0 failed samples, 0 output/visual warnings, 0 missing source text.
+    - Confirmed `/tmp/hwp-qa-review-check/hancom-review.md` contains the expected review matrix and manual gate instructions.
+  - Committed implementation as `f1221cc` with `[feat] add hancom manual review packet`.
+  - Attempted `git push -u origin feat/codex-goals-workflow`; push failed with `Permission to 0xAryweb3/notion-hwpx-converter.git denied to 0xDorin`.
+- 2026-05-23 continuation:
+  - Added `docs/superpowers/specs/2026-05-23-hancom-visual-qa-runner-design.md` and `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`.
+  - Added `src/features/hwpx/qaRun.ts` and `src/test/hwpx-qa-run.test.ts` with RED/GREEN coverage for sample-spec parsing, repeated CLI samples, run-level pass/fail gates, and Markdown summary rendering.
+  - Added `src/features/hwpx/generationReport.ts` and refactored `helper/generate-local.ts` to share report creation for HWPX output, output audit, and visual dogfood.
+  - Added `helper/qa-run.ts` and README docs for the batch QA command. The runner writes one `.hwpx`, `.json`, and `.svg` per sample plus `qa-summary.json` and `qa-summary.md`.
+  - Verification after implementation:
+    - `npm test`: 16 files / 132 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+  - Ran the QA runner against the public Notion page and all three BRIEF samples:
+    - Output directory: `/Users/hyeon/Desktop/hwp-result/qa-current`
+    - Summary: `/Users/hyeon/Desktop/hwp-result/qa-current/qa-summary.md`
+    - Result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
+    - `7-8`: PASS, page count 2, output tables 8, body structure tables 6.
+    - `9-10`: PASS, page count 2, output tables 7, body structure tables 5.
+    - `6-7`: PASS, page count 3, output tables 8, body structure tables 7.
+- 2026-05-04 continuation:
+  - Added `docs/superpowers/plans/2026-05-04-quality-report-traceability.md` and `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`.
+  - Added a RED/GREEN quality-report regression proving bullet assignments expose `글머리 들여쓰기 1,448hu` and `textColor: "#000000"` instead of only the raw negative sample hanging indent.
+  - Updated `src/features/hwpx/quality.ts`, `src/panel/App.tsx`, and `src/panel/styles.css` so the UI report includes text color, user-facing indentation labels, all assignment rows, and `structureTable · 표` role labels.
+  - Regenerated `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx`, `current-9-10.hwpx`, and `current-6-7.hwpx` from the public Notion URL. All three scored 100 with 0 audit/visual issues.
+  - The regenerated 7-8 report shows `울산시, 기후위기 대응 중장기 전략 수립 착수`, `센터 소식`, and `울산‘탄소영감(Net-Zero) 실험실’프로젝트 참여자 모집` as black structure-table assignments, while `울산 소식` remains a black plain category heading because the 7-8 sample encodes that label as a paragraph rather than a table.
+  - After the user granted screen-recording permission, `screencapture` can now see Hancom. A fresh-open copy, `/Users/hyeon/Desktop/hwp-result/current-7-8-fresh-open.hwpx`, rendered the first page in Hancom with black text, title tables, and indented round bullets. `System Events` automation still returns `-1743`, so app-controlled page navigation is still unavailable.
+  - Verification after the quality-report fix: `npm test` passed 15 files / 120 tests, `npm run build` passed, and `git diff --check` passed.
+  - Investigated why Hancom showed `current-7-8.hwpx` as three pages while visual dogfood reported two. XML has only one explicit `pageBreak="1"`, but page 1 content ends at `73345hu` with page content height `74266hu`, leaving only `921hu`; Hancom reflow can push the page over and create an extra page before the forced break.
+  - Added `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`.
+  - Added a RED/GREEN regression in `src/test/hwpx-visual-dogfood.test.ts` and updated `src/features/hwpx/visualDogfood.ts` to report warning code `page-bottom-tight-risk`.
+  - Code review found the first headroom check ignored table geometry. Added table top/bottom extraction and table overflow/headroom regressions.
+  - Updated `src/features/hwpx/render.ts` so generated paragraphs and generated one-cell structure tables start on a new page when they would overflow or leave less than `2000hu` of bottom headroom.
+  - Regenerated current BRIEF outputs again. `current-7-8.json`, `current-9-10.json`, and `current-6-7.json` now all report score 100, 0 output-audit errors/warnings, 0 visual-dogfood errors/warnings, `pageOverflowRiskCount: 0`, `pageBottomTightRiskCount: 0`, and 0 missing source text.
+  - Reopened `/Users/hyeon/Desktop/hwp-result/current-7-8-verified.hwpx` in Hancom and captured `/tmp/current-7-8-verified-hancom.png`. The first visible page shows black text, preserved title tables, and indented round bullets.
+  - User reported that Hancom still showed indentation where it should not. Screenshot inspection and XML comparison showed the generated text for `울산 소식` did not include `○`, but its paragraph style `paraPrIDRef="64"` had `<hh:heading type="BULLET">`, so Hancom drew an automatic bullet.
+  - Added `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`.
+  - Added RED tests in `src/test/hwpx-output-audit.test.ts` and `src/test/hwpx-render.test.ts` for non-bullet generated text inheriting automatic Hancom bullet/heading metadata.
+  - Updated `src/features/hwpx/render.ts` so generated paragraph styles are cloned to remove automatic heading metadata, and so bullet/left-align clones also emit plain `hh:heading type="NONE"` metadata.
+  - Updated `src/features/hwpx/outputAudit.ts` with `badNonBulletAutoHeadingCount` and `non-bullet-auto-heading` errors.
+  - Updated `helper/generate-local.ts` console output to show `badNonBulletAutoHeadingCount`.
+  - Code review found that the first sanitizer missed generated one-cell structure tables because `renderStructureTable()` cloned template table XML directly. Added a structure-table regression and sanitized `paraPrIDRef` values inside generated structure tables as well.
+  - Regenerated current BRIEF outputs from the public Notion URL:
+    - `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` / `.json`: score 100, passed true, 0 errors/warnings, `badNonBulletAutoHeadingCount: 0`, `nonBlackGeneratedRunCount: 0`, 8 output tables, 6 body structure tables, 0 missing source text.
+    - `/Users/hyeon/Desktop/hwp-result/current-9-10.hwpx` / `.json`: score 100, passed true, 0 errors/warnings, `badNonBulletAutoHeadingCount: 0`, `nonBlackGeneratedRunCount: 0`, 7 output tables, 5 body structure tables, 0 missing source text.
+    - `/Users/hyeon/Desktop/hwp-result/current-6-7.hwpx` / `.json`: score 100, passed true, 0 errors/warnings, `badNonBulletAutoHeadingCount: 0`, `nonBlackGeneratedRunCount: 0`, 8 output tables, 7 body structure tables, 0 missing source text.
+  - XML inspection after regeneration showed `전국 소식`, `울산 소식`, `센터 소식`, and `울산시, 기후위기 대응 중장기 전략 수립 착수` use black character styles and `heading=NONE`; `울산시, 기후위기 대응 중장기 전략 수립 착수` is in a one-cell structure table.
+  - Sample comparison showed `울산 소식` itself is not a table motif in the supplied 7-8, 9-10, or 6-7 samples; the news title below it is the structure-table content.
+  - Regenerated visual dogfood previews/reports:
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-7-8.after-auto-heading.svg` / `.svg.png` / `.json`: 0 errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-9-10.after-auto-heading.svg` / `.svg.png` / `.json`: 0 errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-6-7.after-auto-heading.svg` / `.svg.png` / `.json`: 0 errors/warnings.
+  - Attempted Hancom capture with `open -a 'Hancom Office HWP Viewer'`, `open -n -a`, `screencapture`, and AppleScript activation. `screencapture` works, but the viewer window did not appear on the captured desktop, and AppleScript access failed with `System Events` permission denied / Hancom AppleEvent timeout.
+  - Verification after the auto-heading fix and structure-table review fix: `npm test` passed 15 files / 119 tests, `npm run build` passed, and `git diff --check` passed.
+  - Confirmed the current branch is `feat/codex-goals-workflow`.
+  - Confirmed `/private/tmp/hwp-result/current-7-8.hwpx`, `current-9-10.hwpx`, and `current-6-7.hwpx` plus JSON reports exist from the previous goal-session run.
+  - Confirmed the machine has `Hancom Office HWP Viewer.app`, but `qlmanage` thumbnail generation for HWPX hangs, so it is not usable as an automated Hancom proxy.
+  - Inspected the existing visual dogfood PNG and found the preview hid `insideTable` content, so title tables and one-cell structure motifs were invisible even though generated HWPX XML/report tables were present.
+  - Added `docs/superpowers/plans/2026-05-04-table-aware-visual-dogfood.md`.
+  - Extended `src/features/hwpx/visualDogfood.ts` so `VisualDogfoodReport` includes table summaries with text, row/column count, width/height, anchor/block status, and page index.
+  - Updated `renderVisualDogfoodSvg()` to include a right-side `Table motifs` panel showing title tables and structure tables.
+  - Added regressions in `src/test/hwpx-visual-dogfood.test.ts` proving table text appears in SVG previews.
+  - Addressed code-review feedback by adding row/column fallback counting for tables that omit `rowCnt`/`colCnt`, and by separating table paragraph text instead of concatenating it without separators.
+  - Regenerated table-aware previews and reports:
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-7-8.table-aware.svg` / `.png` / `.json`: 8 non-empty tables, 0 visual errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-9-10.table-aware.svg` / `.png` / `.json`: 7 non-empty tables, 0 visual errors/warnings.
+    - `/Users/hyeon/Desktop/hwp-result/visual/current-6-7.table-aware.svg` / `.png` / `.json`: 8 non-empty tables, 0 visual errors/warnings.
+  - Copied current generated HWPX/JSON artifacts from `/private/tmp/hwp-result/` into `/Users/hyeon/Desktop/hwp-result/` for manual Hancom review.
+  - Ran `npm test`: 15 files / 116 tests passed.
+  - Ran `npm run build`: TypeScript and Vite production build passed.
+  - Ran `git diff --check`: passed.
+- 2026-05-03 current-session verification:
+  - Read `README.md`, `HANDOFF.md`, the commercial engine design, the structure motif design, the structure motif implementation plan, and `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`.
+  - Confirmed the current branch is `feat/codex-goals-workflow` at `f40806a` and the worktree was clean before this handoff edit.
+  - Ran `npm test`: 15 files / 115 tests passed.
+  - Ran `npm run build`: TypeScript and Vite production build passed.
+  - Ran `git diff --check`: passed.
+  - Regenerated current-code outputs from the live public Notion URL into `/private/tmp/hwp-result/` using all three BRIEF samples:
+    - `current-7-8.hwpx` / `current-7-8.json`: score 100, passed true, 0 output-audit errors/warnings, 0 visual errors/warnings, 8 output tables, 6 body structure tables, 62 line segment arrays, 0 missing source text.
+    - `current-9-10.hwpx` / `current-9-10.json`: score 100, passed true, 0 output-audit errors/warnings, 0 visual errors/warnings, 7 output tables, 5 body structure tables, 62 line segment arrays, 0 missing source text.
+    - `current-6-7.hwpx` / `current-6-7.json`: score 100, passed true, 0 output-audit errors/warnings, 0 visual errors/warnings, 8 output tables, 7 body structure tables, 63 line segment arrays, 0 missing source text.
+  - Conclusion: the committed pipeline already satisfies the automated brief gates. The next useful plan should focus on Hancom-rendered visual evidence and closing gaps found there, not on speculative XML/style changes.
+- Confirmed the provided sample HWPX is a ZIP package and contains `Contents/header.xml` plus `Contents/section0.xml`.
+- Extracted sample style references such as `paraPrIDRef` and `charPrIDRef` from existing paragraphs.
+- Used TDD for document role detection, Notion export parsing, and HWPX rendering.
+- Fixed build config issues by splitting Vite and Vitest configs.
+- Fixed fflate ZIP test data construction by ensuring typed arrays are created in the active runtime realm.
+- Code review found that the real sample could infer wrong styles from later paragraphs; fixed by keeping first matched role styles and rejecting date-like section matches.
+- Confirmed the public Notion link `https://galvanized-need-1fa.notion.site/BRIEF-9-2026-5-34f1e6afd42e8029a30bd4cb4b0523d6` returns readable Notion blocks through `loadPageChunk`.
+- Verified `POST /notion/public` returns title `울산광역시 탄소중립지원센터 BRIEF 통권 제9호(2026년 5월)` and 53 cleaned text lines.
+- Verified helper `OPTIONS /match` returns `Access-Control-Allow-Private-Network: true`.
+- Fixed Codex CLI invocation for `codex-cli 0.125.0` by moving `--ask-for-approval never` before the `exec` subcommand.
+- Ran `npm test` successfully: 6 files, 28 tests.
+- Ran `npm run build` successfully.
+- Restarted the local helper on `http://127.0.0.1:8765` with the current code and verified `/health` plus private-network preflight headers.
+- Verified the Vite app responds on `http://localhost:5173`.
+- Fixed invalid generated HWPX XML caused by treating self-closing `<hp:t/>` as an editable text node in title-table regions. Added XML-validity regression coverage for generated title-table outputs.
+- Fixed the BRIEF body-style mismatch where generated body headings reused a red sample instruction style. The renderer now analyzes the sample body immediately after the preserved title tables and reuses those styles for article headings, round-bullet paragraphs, BRIEF page/category headings, news titles, and news bullets.
+- Generated `/Users/hyeon/Desktop/hwp-result/style-check.hwpx` from the BRIEF sample plus the same preview text used in `/Users/hyeon/Desktop/hwp-result/표없.hwpx`. XML inspection shows article headings now use `p27/c20`, main bullets use `p27/c8`, news bullets use `p41/c8`, and the previous red body heading style is no longer used for generated content.
+- Improved template summary inference so the BRIEF sample's default `section` style now resolves to `p27/c20` instead of the red fallback `p53/c39`. The UI now shows paragraph/table counts plus font size, color, character spacing, and bold state for each detected role.
+- Added minimal table-row support. Markdown pipe tables and HTML `<table>` rows are parsed as `tableRow` blocks. When input includes consecutive table rows, the renderer clones the first multi-cell body table from the sample and replaces cell text; when input has no table rows, sample body tables are still omitted.
+- Generated `/Users/hyeon/Desktop/hwp-result/style-check-2.hwpx` and `/Users/hyeon/Desktop/hwp-result/table-check.hwpx`. XML inspection shows both are valid, `style-check-2.hwpx` keeps 2 title tables and no body tables, and `table-check.hwpx` adds one cloned body table containing `구분/기준/달성/목표 달성`.
+- Public Notion import now preserves table containers and `table_row` blocks as tab-separated `tableRow` lines instead of dropping them.
+- Body table rendering now analyzes all multi-cell sample body tables and chooses the closest slot by column and row count. It can also clone cells when the input has more columns than the closest sample table.
+- `문단형 본문` mode now has real behavior: title tables are still preserved, but input table rows are rendered as paragraphs instead of cloning sample body tables.
+- Added a pre-generation quality report in the UI. It surfaces title-table preservation, omitted sample body tables, missing sample body tables for table input, and suspicious red section styles.
+- Generated `/Users/hyeon/Desktop/hwp-result/commercial-table-slot-check-2.hwpx` and `/Users/hyeon/Desktop/hwp-result/commercial-flat-check.hwpx`. XML inspection shows both valid; table-slot mode keeps 3 tables with a 3-column cloned table, while flat mode keeps only the 2 title tables and still includes the table text.
+- Investigated `/Users/hyeon/Desktop/hwp-result/rules-output.hwpx` after the user reported missing indentation and overlapping text. XML inspection showed 56 paragraphs but 0 `hp:linesegarray` entries, while the BRIEF sample has line layout caches on every paragraph.
+- Added regression coverage for fresh generated line layout caches and for preferring non-empty sample paragraphs over blank spacer paragraphs when deriving line metrics.
+- Generated `/Users/hyeon/Desktop/hwp-result/rules-layout-fixed.hwpx` from the BRIEF 7-8 sample and the same preview text as `rules-output.hwpx`. XML inspection shows 2 title tables, 56 paragraphs, 56 `hp:linesegarray` entries, 79 `hp:lineseg` entries, no red `charPrIDRef="39"` runs, no cloned body table, and valid XML.
+- Verification on 2026-04-27: `npm test` passed 7 files / 41 tests, `npm run build` passed, and `git diff --check` passed.
+- After the user reported that the latest output still looked very poor, compared recent outputs (`codex-output.hwpx`, `ㅅ2.hwpx`, `t1.hwpx`) against the BRIEF samples. The old generated files had only 2 tables, 0 images, 2 controls, and 54 paragraphs, while the 7-8 sample has 19 tables, 5 images, 30 controls, and 237/257 paragraph/line-layout records. Root cause: the previous renderer generated a new body instead of preserving the sample document structure.
+- Added `preserveTemplate` rendering semantics that preserve the full `Contents/section0.xml` structure and replace one non-empty template paragraph slot with one input block. Multi-`hp:t` paragraphs no longer consume multiple input lines.
+- Added anchor-aware slot assignment for `탄소중립 정보공유` and `센터 소식`, so those source groups land in the matching sample sections instead of being inserted into earlier image/book/table slots.
+- Added role-aware slot assignment so normal dash items prefer bullet-like sample slots, news titles prefer heading-like sample slots, and overflow content falls back to the next fillable slot rather than being dropped.
+- Updated UI wording, quality messages, and README to describe full sample-structure preservation instead of optional title-table/body-table generation.
+- Generated comparison files in `/Users/hyeon/Desktop/hwp-result/`:
+  - `preserved-template-output.hwpx` from the 7-8 sample: 257 paragraphs, 19 tables, 5 images, 30 controls, 257 `hp:linesegarray`, 364 `hp:lineseg`.
+  - `preserved-template-output-sample7.hwpx` from the 9-10 sample: 227 paragraphs, 16 tables, 18 images, 16 controls.
+  - `preserved-template-output-sample5.hwpx` from the 6-7 sample: 259 paragraphs, 19 tables, 5 images, 24 controls.
+- Verification on 2026-04-28: `npm test` passed 7 files / 47 tests, `npm run build` passed, and `git diff --check` passed.
+- After the user pointed out that images should come from Notion content rather than from the sample, created `docs/superpowers/plans/2026-04-28-source-image-and-template-asset-policy.md` and implemented that asset split.
+- Added source asset types: `DocumentBlockRole` now includes `image`, with optional `DocumentImageAsset` metadata on blocks.
+- Updated Notion export parsing so standalone Markdown images, HTML `<img>` elements, and ZIP-local image files become `image` blocks. ZIP-local bytes are attached when the asset exists in the export.
+- Updated the public Notion helper/client contract to support structured text/image blocks. The helper preserves image URLs and attempts to download image bytes as base64; the browser client decodes those bytes into `Uint8Array`.
+- Updated the renderer asset policy. `generateHwpx` defaults to `templateGraphics: "drop"` and `sourceImages: "place"`. Dropped sample graphics are removed from section XML, stale `BinData` files are pruned, and stale image manifest items are removed from `Contents/content.hpf`.
+- Source image blocks with bytes are embedded as new `BinData/source-image-N.*` package files and referenced from appended HWPX image paragraphs. Image blocks without bytes are reported in quality warnings instead of silently pretending to render.
+- Updated UI wording and quality report messages so the policy is explicit: sample images are not copied; Notion input images are placed as new images.
+- Generated current comparison files in `/Users/hyeon/Desktop/hwp-result/`:
+  - `source-asset-policy-sample1.hwpx`: 256 paragraphs, 19 tables, 0 template pics, 0 containers, 0 binary refs, 0 `BinData` files, 256 `hp:linesegarray`.
+  - `source-asset-policy-sample2.hwpx`: 227 paragraphs, 16 tables, 0 template pics, 0 containers, 0 binary refs, 0 `BinData` files, 227 `hp:linesegarray`.
+  - `source-asset-policy-sample3.hwpx`: 259 paragraphs, 19 tables, 0 template pics, 0 containers, 0 binary refs, 0 `BinData` files, 259 `hp:linesegarray`.
+  - `source-asset-policy-with-image.hwpx`: synthetic source-image check from the 7-8 sample; contains `BinData/source-image-1.png`, one `source-image` manifest item, and no original template image refs.
+- After the user pushed for commercial-quality deterministic format analysis, created `docs/superpowers/plans/2026-04-28-template-analyzer-v2-rule-and-llm.md` and implemented `src/features/hwpx/formatProfile.ts`.
+- `HwpxFormatProfile` extracts:
+  - page size and header/footer/gutter/top/bottom/left/right margins,
+  - `hh:paraPr` alignment, indentation/margins, line spacing, tab and border references,
+  - `hh:charPr` font face, point size, character spacing, width ratio, color, and bold,
+  - `hp:tbl` row/column/size/margin information and first-cell size/margins,
+  - non-empty text slots with `paraPrIDRef`, `styleIDRef`, `charPrIDRef`, first `hp:lineseg`, and table membership.
+- Quality report now warns when the sample lacks page margins, paragraph styles, character styles, or text slots, and reports when page/paragraph/character/table/cell metrics were read.
+- Generated analyzer artifacts:
+  - `/Users/hyeon/Desktop/hwp-result/template-profile-sample1.json`: page margins found, 62 paragraph styles, 66 character styles, 19 tables, 31 cells, 164 text slots.
+  - `/Users/hyeon/Desktop/hwp-result/template-profile-sample2.json`: page margins found, 48 paragraph styles, 58 character styles, 16 tables, 32 cells, 136 text slots.
+  - `/Users/hyeon/Desktop/hwp-result/template-profile-sample3.json`: page margins found, 48 paragraph styles, 42 character styles, 18 tables, 55 cells, 157 text slots.
+- Corrected the default generation policy after inspecting `/Users/hyeon/Desktop/hwp-result/commercial-v2-rules-output.hwpx`: the public Notion source has 53 blocks, 0 table rows, and 0 images, so the output should not preserve sample body tables. Regenerated the file with content-driven generation. XML inspection now shows 54 text paragraphs, 2 title tables, 0 body tables, 0 sample pictures, 0 sample containers, and 56 fresh `hp:linesegarray` entries.
+- Added generated layout support for paragraph before/after spacing from sample `hh:paraPr` margins. The line-layout cursor now applies `hc:prev` and `hc:next` when emitting fresh `hp:linesegarray` entries.
+- Fixed the small `센터 소식` issue. The 7-8 BRIEF sample contains a `센터 소식` paragraph with a 5pt character style, so the renderer now rejects tiny heading candidates and falls back to readable heading styles for generated center-section headings. The current generated file has `센터 소식` at 12pt bold blue and `울산‘탄소영감...’` at 12pt bold black.
+- Added hanging-indent layout for generated round-bullet paragraphs. When a generated paragraph starts with `○` or a dash and the sample `paraPr` has a negative `hc:intent`, continuation lines now use that absolute indent as `hp:lineseg horzpos` and shrink `horzsize` accordingly. Also added an extra generated line break after the last bullet before the next non-bullet heading.
+- Reframed the renderer around an explicit deterministic pipeline and saved the plan at `docs/superpowers/plans/2026-04-28-format-grammar-render-pipeline.md`.
+- Extended `HwpxFormatProfile` with `paragraphSamples`, including text, paragraph/character/style refs, table membership, table ordinal, and first line metrics.
+- Added `src/features/hwpx/formatGrammar.ts` to infer reusable sample roles (`title`, `issue`, `bodyHeading`, `bullet`, `pageHeading`, `categoryHeading`, `newsTitle`, `newsBullet`) from measured sample data. The grammar rejects tiny generated-heading candidates, red guide styles, and angle-bracket sample instructions when choosing generated styles.
+- Added `src/features/hwpx/sourceStructure.ts` to convert source `DocumentBlock[]` into source nodes. Consecutive `tableRow` blocks become explicit table groups; no source table rows means no body table assignment.
+- Added `src/features/hwpx/styleAssignment.ts` to map each source node to a grammar role and concrete HWPX style, with reason/confidence/style metrics suitable for UI inspection.
+- Updated the `auto` renderer body path to consume source nodes and style assignments. The sample title region remains preserved, while the body is source-driven and uses grammar-selected styles/tables.
+- Expanded the quality report with `assignmentRows` and updated the UI to show a compact "서식 매핑 보고서" table, including role, style ref, font size, character spacing, and indent.
+- Added `helper/generate-local.ts` for repeatable local generation from a sample HWPX plus public Notion URL/source text. It writes both `.hwpx` and a JSON report with table/image counts, red style usage, line cache counts, and bullet continuation indentation checks.
+- Generated and inspected:
+  - `/Users/hyeon/Desktop/hwp-result/grammar-pipeline-rules-output.hwpx` from the 7-8 sample: 53 source blocks, 2 output tables, 0 body tables, 0 pictures/containers, 56 `hp:linesegarray`, 0 red runs, 39 bullet paragraphs, 0 bad wrapped-bullet indents.
+  - `/Users/hyeon/Desktop/hwp-result/grammar-pipeline-sample-9-10.hwpx` from the 9-10 sample: 2 output tables, 0 body tables, 0 pictures/containers, 56 `hp:linesegarray`, 0 red runs, 0 bad wrapped-bullet indents.
+  - `/Users/hyeon/Desktop/hwp-result/grammar-pipeline-sample-6-7.hwpx` from the 6-7 sample: 1 output table, 0 body tables, 0 pictures/containers, 55 `hp:linesegarray`, 0 red runs, 0 bad wrapped-bullet indents.
+- Verification on 2026-04-28: `npm test` passed 11 files / 70 tests, `npm run build` passed, and `git diff --check` passed.
+- Added the senior/team-lead product framing in `docs/superpowers/specs/2026-04-28-commercial-document-engine-design.md` and the implementation plan in `docs/superpowers/plans/2026-04-28-generated-output-audit.md`.
+- Added `src/features/hwpx/outputAudit.ts`, a post-generation HWPX audit engine. It scores the actual generated section/header XML, returns pass/fail, and reports table policy, image/container remnants, red guide style use, wrapped-bullet indentation, missing source text, and long-paragraph overflow risk.
+- Added `src/test/hwpx-output-audit.test.ts` with regression coverage for unexpected body tables, bad bullet continuation indentation, red style usage, missing source text, overflow warnings, and clean-output pass scoring.
+- Updated `helper/generate-local.ts` so every local generation JSON includes `outputAudit`, and the console output now includes `score`, `passed`, `errors`, `warnings`, output body table count, bad bullet indent count, and missing source text count.
+- Regenerated commercial audit outputs:
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 2 output tables, 0 body tables, 56 `hp:linesegarray`, 0 bad bullet indents, 0 missing source texts.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 2 output tables, 0 body tables, 56 `hp:linesegarray`.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 1 output table, 0 body tables, 55 `hp:linesegarray`.
+- Verification on 2026-04-29: `npm test` passed 12 files / 76 tests, `npm run build` passed, and `git diff --check` passed.
+- Investigated the user's suspicion that paragraphs needing indentation were using hanging indent. Real sample reports confirmed `bodyHeading`, `bodyParagraph`, and `newsTitle` could inherit negative `intent` from sample body styles.
+- First normalization attempt avoided negative `intent` but degraded generated body styles to generic 10pt/0 styles. Corrected the approach to preserve the selected character style and replace only the paragraph style.
+- Added regression coverage in `src/test/hwpx-format-grammar.test.ts` proving non-bullet indent normalization does not borrow centered title-table paragraph styles.
+- Added `src/features/hwpx/layoutSafety.ts` and `src/test/hwpx-layout-safety.test.ts`; long body/bullet/news-bullet assignments split before rendering, while title/issue/heading/table/image assignments remain protected.
+- Integrated layout safety into `src/features/hwpx/render.ts`, `src/features/hwpx/quality.ts`, and `helper/generate-local.ts`.
+- Updated `src/features/hwpx/outputAudit.ts` to handle split layout fragments and to report `badNonBulletIndentCount`.
+- Regenerated commercial audit outputs on 2026-04-29:
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 2 output tables, 0 body tables, 56 `hp:linesegarray`, 0 bad bullet indents, 0 bad non-bullet indents, 0 missing source texts.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 2 output tables, 0 body tables, 56 `hp:linesegarray`, 0 bad bullet indents, 0 bad non-bullet indents, 0 missing source texts.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 1 output table, 0 body tables, 55 `hp:linesegarray`, 0 bad bullet indents, 0 bad non-bullet indents, 0 missing source texts.
+- Verification on 2026-04-29 after layout safety and indent fixes: `npm test` passed 13 files / 83 tests, `npm run build` passed, and `git diff --check` passed.
+- Investigated the user's visual complaints: blue generated text came from sample blue character styles (`#0000FF`) being selected for generated category/body roles, bullets still used sample paragraph styles with negative `intent`, and the previous paragraph break was only encoded as line-cache spacing rather than a real paragraph.
+- Added visual-regression plan `docs/superpowers/plans/2026-04-29-visual-regression-corrections.md` and implemented it with RED tests first.
+- Added regression coverage:
+  - `src/test/hwpx-format-grammar.test.ts`: generated body roles normalize blue sample character styles to black.
+  - `src/test/hwpx-render.test.ts`: generated bullets use cloned positive-indent paragraph styles and real blank paragraphs after bullet groups.
+  - `src/test/hwpx-output-audit.test.ts`: generated bullets with negative-intent paragraph styles fail audit.
+- Regenerated commercial audit outputs after visual-regression fixes:
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 2 output tables, 0 body tables, 62 `hp:linesegarray`, 0 bad bullet indents, 0 bad non-bullet indents, 0 bad bullet style indents, 0 missing source texts.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 2 output tables, 0 body tables, 62 `hp:linesegarray`, 0 bad bullet indents, 0 bad non-bullet indents, 0 bad bullet style indents, 0 missing source texts.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, 1 output table, 0 body tables, 61 `hp:linesegarray`, 0 bad bullet indents, 0 bad non-bullet indents, 0 bad bullet style indents, 0 missing source texts.
+- XML inspection after regeneration found 0 non-black generated text runs in all three outputs, generated bullet paragraph styles with `intent=0` and `left>0`, and 6 real blank paragraphs after bullet groups in each output.
+- Verification on 2026-04-29 after visual-regression fixes: `npm test` passed 13 files / 87 tests, `npm run build` passed, and `git diff --check` passed.
+- Added `src/features/hwpx/visualDogfood.ts`, `helper/visual-dogfood.ts`, and `src/test/hwpx-visual-dogfood.test.ts`. The visual dogfood path renders generated HWPX line geometry to SVG and reports page overflow, overlap, non-black text, negative bullet paragraph styles, missing blank paragraphs after bullet groups, and bullet continuation-indent risks.
+- Fixed a false-confidence gap in visual dogfood: nested table paragraphs are separated from top-level body paragraphs, and page breaks reset overlap checks instead of comparing across pages.
+- Fixed generation after title tables when a sample has no body-template line cache. The generated body now starts below the preserved title region instead of falling back to `vertpos=0`.
+- Fixed pagination after preserved title regions by reading page dimensions from the full section XML, not just the body-template fragment.
+- Fixed the 9-10 sample's narrow body-heading wrap by normalizing sample line metrics that are much narrower than the page content width.
+- Fixed public Notion structured image handling in `helper/generate-local.ts` by sharing the same public block converter used by the UI. A regression test now proves image blocks survive between text blocks.
+- Fixed source-image append layout so images reserve real line height and page-break when the current page lacks room.
+- Fixed wrapped generated bullet continuation lines for positive-indent output styles. Continuation lines now start deeper than the bullet marker, and the visual dogfood audit catches regressions.
+- Fixed wrapped line `textpos` placement to prefer whitespace breaks instead of slicing blindly by character count.
+- Regenerated and visually dogfooded current commercial outputs on 2026-04-29:
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, visual 0 errors/0 warnings, 2 output tables, 0 body tables, 62 `hp:linesegarray`.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, visual 0 errors/0 warnings, 2 output tables, 0 body tables, 62 `hp:linesegarray`.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx` and `.json`: score 100, passed true, 0 errors, 0 warnings, visual 0 errors/0 warnings, 1 output table, 0 body tables, 61 `hp:linesegarray`.
+  - Browser-rendered dogfood previews are at `/Users/hyeon/Desktop/hwp-result/visual/commercial-audit-7-8.browser.png`, `/Users/hyeon/Desktop/hwp-result/visual/commercial-audit-9-10.browser.png`, and `/Users/hyeon/Desktop/hwp-result/visual/commercial-audit-6-7.browser.png`.
+- Investigated the user's "spacing looks too wide" report. Actual generated character spacing was `0`, matching the sample; the risky layer was paragraph alignment, because generated body paragraphs inherited `horizontal="JUSTIFY"`, which can stretch spaces in Hancom.
+- Added RED/GREEN regressions in `src/test/hwpx-render.test.ts` and `src/test/hwpx-visual-dogfood.test.ts` for left-aligned generated body styles and `justify-spacing-risk`.
+- Regenerated the three commercial outputs again after the spacing fix. Visual reports now show `justifySpacingRiskCount: 0`; XML inspection shows generated body paragraphs have `JUSTIFY: 0`, with generated body styles using `LEFT` alignment except preserved centered title/issue lines.
+- Verification after the spacing fix: `npm test` passed 15 files / 107 tests, `npm run build` passed, and `git diff --check` passed.
+- Investigated the user's "weird enter" report. Generated outputs had `0` real `<hp:lineBreak/>` elements, so the issue was not inserted line breaks; it was overly conservative generated `hp:lineseg` line-layout cache positions causing Hancom/browser previews to wrap a short tail like a stray paragraph line.
+- Fixed line-cache wrapping by widening the estimated characters-per-line from `textHeight * 0.95` to `textHeight * 0.75` and by preventing generated line segments from creating a final continuation line shorter than 9 characters.
+- Added render regressions for sample-width Korean bullet wrapping and short orphan continuation lines.
+- Regenerated the three commercial audit outputs after the line-cache fix. XML inspection now shows:
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx`: 9 wrapped paragraphs, `0` `<hp:lineBreak/>`, `0` short tail lines.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx`: 9 wrapped paragraphs, `0` `<hp:lineBreak/>`, `0` short tail lines.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx`: 11 wrapped paragraphs, `0` `<hp:lineBreak/>`, `0` short tail lines.
+- Re-ran visual dogfood after the line-cache fix. All three current outputs report `0` issues, `0` errors, and `0` warnings, with `0` bullet continuation indent risks, `0` justify-spacing risks, `0` vertical-overlap risks, and `0` page-overflow risks.
+- Verification after the line-cache/orphan-tail fix: `npm test` passed 15 files / 109 tests, `npm run build` passed, and `git diff --check` passed.
+- Added the structure-motif design and implementation plan:
+  - `docs/superpowers/specs/2026-05-01-structure-motif-engine-design.md`
+  - `docs/superpowers/plans/2026-05-01-structure-motif-rendering.md`
+- Root cause for the "middle subtitles/table cases are missing" complaint: the renderer was mostly mapping paragraph roles and explicitly ignored one-cell body tables by only extracting body table templates where `colCount > 1`. Real BRIEF samples use one-cell tables for lead headings, `탄소중립 정보공유`, news item titles, and center section labels.
+- Extended `HwpxFormatProfile` table profiles with `text` and `paragraphCount`, and extended `HwpxFormatGrammar` with `leadHeading` plus `tableMotifs` for one-cell structure tables. Multi-column data tables remain separate from structure-heading tables.
+- Extended source structure so the first short body paragraph after a BRIEF title/issue and before a numbered section becomes `leadHeading`, instead of generic `bodyParagraph`.
+- Extended style assignments with `renderAs: "structureTable"` and a `structureTable` motif reference. Category structure tables are applied only when the source category label matches the motif text, so a `센터 소식` table motif no longer forces `전국 소식` and `울산 소식` into the same table frame.
+- Updated the renderer to clone matching one-cell structure tables for assigned headings/news titles while still cloning multi-column data tables only for source `tableRow` groups. Stale sample text inside cloned structure tables is cleared.
+- Updated generated-output audit so assigned structure tables are allowed when the source has no table rows, while unexpected unassigned body data tables still fail.
+- Updated quality reporting so UI/report rows identify `structureTable` assignments and explain when data tables are removed but matching subtitle structure tables are reused.
+- Regenerated current BRIEF outputs after structure-motif rendering:
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-7-8.hwpx`: score 100, passed true, 0 errors/warnings, 8 output tables, 6 body tables, 0 missing source texts, visual 0 issues.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-9-10.hwpx`: score 100, passed true, 0 errors/warnings, 7 output tables, 5 body tables, 0 missing source texts, visual 0 issues.
+  - `/Users/hyeon/Desktop/hwp-result/commercial-audit-6-7.hwpx`: score 100, passed true, 0 errors/warnings, 8 output tables, 7 body tables, 0 missing source texts, visual 0 issues.
+- Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
+
+## Next Steps
+Fix GitHub auth so this machine pushes as an account with write access to `0xAryweb3/notion-hwpx-converter`, then run `git push -u origin feat/codex-goals-workflow`. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/` with original sample HWPX files, inspect any `hancomReflowRiskCount`/visual warnings, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
+
+## Context
+The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.
+Current public Notion link import cleans Markdown markers and removes raw URLs before HWPX generation. The default renderer preserves the sample title area but treats the body as source-driven content. Template body tables are used only when the source has table rows. Template raster graphics are intentionally not copied; source images are embedded only when the Notion parser/helper has bytes. Low-level formatting is now deterministic through `HwpxFormatProfile` plus `formatGrammar/sourceStructure/styleAssignment/layoutSafety`; LLM/Codex should only be used for semantic slot matching. The `outputAudit` plus `visualDogfood` checks make generated-output failures explicit, including non-bullet hanging indent, bullet continuation indentation, page overflow, and visual overlap risks, but they still cannot prove final Hancom visual rendering.
