@@ -51,7 +51,8 @@ const sectionNamespace =
   'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" ' +
   'xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" ' +
   'xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"';
-const pageBottomHeadroomReserve = 2000;
+const pageBottomHeadroomReserve = 4000;
+const sourceImageBottomHeadroomReserve = 4000;
 
 export function generateHwpx(template: HwpxTemplate, blocks: DocumentBlock[], options: GenerateHwpxOptions = {}): Uint8Array {
   const files: Record<string, Uint8Array> = {};
@@ -973,7 +974,7 @@ function appendSourceImageParagraphs(
     let vertPos = currentBottom + 1000;
     let pageBreak = false;
 
-    if (currentBottom > 0 && vertPos + imageBlockHeight > pageContentHeight) {
+    if (currentBottom > 0 && vertPos + imageBlockHeight > pageContentHeight - sourceImageBottomHeadroomReserve) {
       pageBreak = true;
       vertPos = 0;
     }

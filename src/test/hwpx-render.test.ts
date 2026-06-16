@@ -207,10 +207,32 @@ describe("HWPX rendering", () => {
         }))
       )
     );
-    const fifthParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "본문 5");
+    const sectionXml = sectionXmlFromOutput(output);
+    const fourthParagraph = paragraphXmlByText(sectionXml, "본문 4");
+    const fifthParagraph = paragraphXmlByText(sectionXml, "본문 5");
 
-    expect(fifthParagraph).toContain('pageBreak="1"');
+    expect(fourthParagraph).toContain('pageBreak="1"');
+    expect(firstLineVertPos(fourthParagraph)).toBeLessThanOrEqual(2000);
+    expect(fifthParagraph).toContain('pageBreak="0"');
     expect(firstLineVertPos(fifthParagraph)).toBeLessThanOrEqual(2000);
+  });
+
+  it("starts generated content on a new page when it would leave less than Hancom-safe headroom", () => {
+    const template = loadHwpxTemplate(createPaginationTemplateZip());
+    const output = unzipSync(
+      generateHwpx(
+        template,
+        Array.from({ length: 4 }, (_, index) => ({
+          id: `block-${index + 1}`,
+          role: "body" as const,
+          text: `본문 ${index + 1}`
+        }))
+      )
+    );
+    const fourthParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "본문 4");
+
+    expect(fourthParagraph).toContain('pageBreak="1"');
+    expect(firstLineVertPos(fourthParagraph)).toBeLessThanOrEqual(2000);
   });
 
   it("uses the full section page height when paginating generated body after a title region", () => {
