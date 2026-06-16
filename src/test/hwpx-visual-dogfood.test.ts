@@ -192,6 +192,39 @@ describe("HWPX visual dogfood audit", () => {
     }));
     expect(report.summary.pageOverflowRiskCount).toBe(1);
   });
+
+  it("warns when a wrapped paragraph ends with a very short tail line", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="tail-risk" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:t>울산시는 탄소중립 정책 실행 기반을 넓히기 위한 세부 계획을 발표</hp:t></hp:run>
+    <hp:linesegarray>
+      <hp:lineseg textpos="0" vertpos="0" vertsize="1000" textheight="1000" baseline="850" spacing="600" horzpos="0" horzsize="42520" flags="393216"/>
+      <hp:lineseg textpos="31" vertpos="1600" vertsize="1000" textheight="1000" baseline="850" spacing="600" horzpos="0" horzsize="42520" flags="1441792"/>
+    </hp:linesegarray>
+  </hp:p>
+</hs:sec>`);
+
+    expect(report.summary.shortWrappedTailRiskCount).toBe(1);
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      severity: "warning",
+      code: "short-wrapped-tail-risk"
+    }));
+  });
+
+  it("warns when a generated table is too close to the following top-level paragraph", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:tbl id="body-table"><hp:sz width="42520" height="2400"/><hp:tr><hp:tc><hp:cellSz width="42520" height="2400"/><hp:subList><hp:p id="table-p" paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>울산 소식</hp:t></hp:run></hp:p></hp:subList></hp:tc></hp:tr></hp:tbl>
+  ${paragraph("after-table", "1", "1", "다음 문단", 2600)}
+</hs:sec>`);
+
+    expect(report.summary.tableParagraphGapRiskCount).toBe(1);
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      severity: "warning",
+      code: "table-paragraph-gap-risk"
+    }));
+  });
 });
 
 function createHeader(): string {

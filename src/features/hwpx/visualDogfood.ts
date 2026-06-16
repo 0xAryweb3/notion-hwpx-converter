@@ -71,6 +71,8 @@ export interface VisualDogfoodReport {
     verticalOverlapRiskCount: number;
     pageOverflowRiskCount: number;
     pageBottomTightRiskCount: number;
+    shortWrappedTailRiskCount: number;
+    tableParagraphGapRiskCount: number;
     pageCount: number;
     pageContentHeight: number;
   };
@@ -89,6 +91,8 @@ const emptyMargin: VisualDogfoodParagraphMargin = {
   next: 0
 };
 const pageBottomHeadroomWarningThreshold = 2000;
+const minimumFinalWrappedLineChars = 9;
+const minimumTableParagraphGap = 1200;
 
 export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string): VisualDogfoodReport {
   const characterStyles = readCharacterStyles(headerXml);
@@ -116,6 +120,8 @@ export function analyzeHwpxVisualDogfood(headerXml: string, sectionXml: string):
       verticalOverlapRiskCount: issues.filter((issue) => issue.code === "vertical-overlap-risk").length,
       pageOverflowRiskCount: issues.filter((issue) => issue.code === "page-overflow-risk").length,
       pageBottomTightRiskCount: issues.filter((issue) => issue.code === "page-bottom-tight-risk").length,
+      shortWrappedTailRiskCount: issues.filter((issue) => issue.code === "short-wrapped-tail-risk").length,
+      tableParagraphGapRiskCount: issues.filter((issue) => issue.code === "table-paragraph-gap-risk").length,
       pageCount: Math.max(1, ...paragraphs.map((paragraph) => paragraph.pageIndex + 1)),
       pageContentHeight
     }
@@ -293,6 +299,23 @@ function collectIssues(
         detail: { alignHorizontal: paragraph.alignHorizontal }
       });
     }
+
+    if (paragraph.lines.length > 1) {
+      const lastLine = paragraph.lines.at(-1);
+      const lastTextPos = lastLine?.textPos ?? text.length;
+      const tailLength = Math.max(0, text.length - lastTextPos);
+
+      if (tailLength > 0 && tailLength < minimumFinalWrappedLineChars) {
+        issues.push({
+          severity: "warning",
+          code: "short-wrapped-tail-risk",
+          message: "A wrapped generated paragraph ends with a very short final line, which often looks like an accidental line break in Hancom.",
+          paragraphIndex: paragraph.index,
+          text,
+          detail: { tailLength, minimumFinalWrappedLineChars }
+        });
+      }
+    }
   }
 
   for (let index = 0; index < paragraphs.length; index += 1) {
@@ -396,6 +419,28 @@ function collectIssues(
     }
   }
 
+  for (const table of tables.filter((item) => item.text.trim().length > 0)) {
+    const nextParagraph = findNextTopLevelParagraphAfterTable(table, paragraphs);
+
+    if (nextParagraph === undefined) {
+      continue;
+    }
+
+    const nextTop = nextParagraph.lines[0]?.vertPos ?? table.bottom;
+    const gap = nextTop - table.bottom;
+
+    if (gap >= 0 && gap < minimumTableParagraphGap) {
+      issues.push({
+        severity: "warning",
+        code: "table-paragraph-gap-risk",
+        message: "A table is too close to the following paragraph, so Hancom reflow may make the page look crowded or overlapping.",
+        paragraphIndex: nextParagraph.index,
+        text: nextParagraph.text.trim(),
+        detail: { tableIndex: table.index, gap, minimumTableParagraphGap, pageIndex: table.pageIndex }
+      });
+    }
+  }
+
   return issues;
 }
 
@@ -420,6 +465,22 @@ function readPageBottoms(
   }
 
   return pageBottoms;
+}
+
+function findNextTopLevelParagraphAfterTable(
+  table: VisualDogfoodTable,
+  paragraphs: VisualDogfoodParagraph[]
+): VisualDogfoodParagraph | undefined {
+  return paragraphs
+    .filter((paragraph) =>
+      paragraph.topLevel &&
+      !paragraph.insideTable &&
+      paragraph.pageIndex === table.pageIndex &&
+      paragraph.text.trim().length > 0 &&
+      paragraph.lines.length > 0 &&
+      (paragraph.lines[0]?.vertPos ?? 0) >= table.bottom
+    )
+    .sort((left, right) => (left.lines[0]?.vertPos ?? 0) - (right.lines[0]?.vertPos ?? 0))[0];
 }
 
 function findNextMeaningfulParagraphIndex(
