@@ -3,17 +3,19 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `feat/codex-goals-workflow`
-Last completed implementation commit: `f1221cc` (`[feat] add hancom manual review packet`)
+Current HEAD: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
+Last completed implementation commit: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
 Remote: `origin` restored to `https://github.com/0xAryweb3/notion-hwpx-converter` (local git displays the SSH-rewritten URL).
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
 - `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`
+- `docs/superpowers/plans/2026-06-17-hwpx-hancom-safe-layout.md`
 - `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`
 - `docs/superpowers/plans/2026-05-04-generated-auto-heading-sanitization.md`
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree currently contains only this handoff update. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and are not tracked.
+Working tree was clean at the start of the 2026-06-17 context-save session. After the Hancom-safe layout session, only `HANDOFF.md` is expected to be modified unless the user commits it. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and `/tmp/hwpx-hancom-safe-smoke.*` and are not tracked.
 Push status: `git push -u origin feat/codex-goals-workflow` failed because GitHub authenticated as `0xDorin`, which does not have push permission to `0xAryweb3/notion-hwpx-converter`.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner now creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
@@ -61,8 +63,35 @@ Implemented:
 - Added `src/features/hwpx/generationReport.ts` so single-sample and batch generation share the same report-building logic.
 - Added `src/features/hwpx/qaRun.ts` for sample-spec parsing, QA gate aggregation, and Markdown summary rendering.
 - The QA runner now writes `hancom-review.md`, a manual Hancom evidence packet with per-sample page-count, first-page, later-page, screenshot-path, and notes fields. `qa-summary.md` links to this packet, and helper stdout includes `hancomReviewPath`.
+- Added HWPX-only Hancom-safe layout reporting. Local generation JSON/console summaries now expose `hancomReflowRiskCount`, derived from deterministic output-audit and visual-dogfood risks.
+- Visual dogfood now reports `short-wrapped-tail-risk` and `table-paragraph-gap-risk`, with summary counts for both, so short accidental-looking final lines and crowded table-to-paragraph spacing are visible in QA reports.
+- The default HWPX renderer now uses a stricter `4000hu` page-bottom headroom reserve for generated paragraphs/tables and source images.
+- Generated structure table layout reservation now accounts for table out-margins, cloned table line boxes, and a `1200hu` following-gap reserve.
+- README documents `hancomReflowRiskCount` in local generation reports.
 
 ## What Was Tried
+- 2026-06-17 Hancom-safe HWPX layout session:
+  - User clarified the product remains HWPX-only and that the priority is conversion quality, not UI polish or alternate formats.
+  - Added and committed `docs/superpowers/specs/2026-06-17-hwpx-hancom-safe-layout-design.md` (`004d7f9`) and `docs/superpowers/plans/2026-06-17-hwpx-hancom-safe-layout.md` (`88c81d1`).
+  - Added `hancomReflowRiskCount` to `GeneratedHwpxReport` and `GeneratedHwpxConsoleSummary` via `countHancomReflowRisks()` (`b113104`).
+  - Added visual-dogfood checks for `short-wrapped-tail-risk` and `table-paragraph-gap-risk` (`cf140e2`).
+  - Tightened generated HWPX page-bottom reserves from `2000hu` to `4000hu`, including source image placement (`e89c61c`).
+  - Fixed the generated-report test fixture shape after TypeScript build caught drift from the new visual summary fields (`4844fd2`).
+  - Documented `hancomReflowRiskCount` in README (`21c4504`).
+  - Added a renderer regression for generated structure-table spacing and reserved structure-table layout using table out-margins, cloned line boxes, and a `1200hu` following-gap reserve (`1dfd6a5`).
+  - Verification:
+    - Baseline `npm test`: 16 files / 133 tests passed before implementation.
+    - Final `npm test`: 16 files / 138 tests passed.
+    - Final `npm run build`: passed.
+    - Final `git diff --check`: passed.
+  - Smoke generation with `/Users/hyeon/Desktop/hwp-result/current-7-8.hwpx` and a short source text wrote `/tmp/hwpx-hancom-safe-smoke.hwpx` plus `.json`. Output audit passed with score 100 and no missing source text. The smoke still reported `hancomReflowRiskCount: 1` for `table-paragraph-gap-risk` when using this already-generated HWPX as the sample, indicating the detector is exposing a duplicated/anchored table-paragraph pattern that should be investigated on original BRIEF samples.
+- 2026-06-17 context save:
+  - User asked to record the current state before restarting the session.
+  - Confirmed branch `feat/codex-goals-workflow`, clean working tree before this handoff edit, and HEAD `49a5829` (`[docs] record push auth blocker`).
+  - Confirmed remote shows as `git@github.com:0xAryweb3/notion-hwpx-converter` for fetch and push due local git URL rewriting.
+  - No implementation changes were made and no tests were run in this save-only session.
+  - A gstack checkpoint was saved at `/Users/hyeon/.gstack/projects/hwp/checkpoints/20260617-035735-hwpx-session-handoff.md`.
+  - Next concrete action: resume from this `HANDOFF.md` or `/context-restore`, then choose the next improvement target; the strongest current candidate remains reliable Hancom-rendered later-page evidence or filling the manual `hancom-review.md` packet for the real BRIEF samples.
 - 2026-06-10 continuation:
   - Confirmed the local git remote was missing, then restored `origin` to `https://github.com/0xAryweb3/notion-hwpx-converter`; local git displays the SSH-rewritten remote.
   - Added `docs/superpowers/specs/2026-06-10-hancom-manual-review-packet-design.md` and `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`, committed as `495ca08` with `[docs] plan hancom manual review packet`.
@@ -315,7 +344,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Fix GitHub auth so this machine pushes as an account with write access to `0xAryweb3/notion-hwpx-converter`, then run `git push -u origin feat/codex-goals-workflow`. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/`, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
+Fix GitHub auth so this machine pushes as an account with write access to `0xAryweb3/notion-hwpx-converter`, then run `git push -u origin feat/codex-goals-workflow`. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/` with original sample HWPX files, inspect any `hancomReflowRiskCount`/visual warnings, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.
