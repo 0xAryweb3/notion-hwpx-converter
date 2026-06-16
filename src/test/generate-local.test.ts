@@ -82,7 +82,7 @@ describe("generate-local source normalization", () => {
         titleTableCount: 0,
         bodyTableCount: 0,
         grammarWarnings: [],
-        tableMotifs: [],
+        tableMotifs: {},
         roles: {}
       },
       quality: {
@@ -135,6 +135,8 @@ describe("generate-local source normalization", () => {
           verticalOverlapRiskCount: 0,
           pageOverflowRiskCount: 0,
           pageBottomTightRiskCount: 0,
+          shortWrappedTailRiskCount: 0,
+          tableParagraphGapRiskCount: 0,
           pageCount: 1,
           pageContentHeight: 10000
         }
