@@ -225,6 +225,23 @@ describe("HWPX visual dogfood audit", () => {
       code: "table-paragraph-gap-risk"
     }));
   });
+
+  it("does not warn when a preserved anchored title table is close to the first generated paragraph", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="title-anchor" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:tbl id="title-table" rowCnt="1" colCnt="1"><hp:sz width="42520" height="2400"/><hp:tr><hp:tc><hp:cellSz width="42520" height="2400"/><hp:subList><hp:p id="title-p" paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="1"><hp:t>보존 표지</hp:t></hp:run></hp:p></hp:subList></hp:tc></hp:tr></hp:tbl><hp:t/></hp:run>
+    <hp:linesegarray><hp:lineseg textpos="0" vertpos="0" vertsize="3000" textheight="3000" baseline="2550" spacing="600" horzpos="0" horzsize="42520" flags="393216"/></hp:linesegarray>
+  </hp:p>
+  ${paragraph("after-title", "1", "1", "1. 첫 본문 제목", 2600)}
+</hs:sec>`);
+
+    expect(report.tables[0]).toMatchObject({ text: "보존 표지", insideAnchor: true });
+    expect(report.summary.tableParagraphGapRiskCount).toBe(0);
+    expect(report.issues).not.toContainEqual(expect.objectContaining({
+      code: "table-paragraph-gap-risk"
+    }));
+  });
 });
 
 function createHeader(): string {

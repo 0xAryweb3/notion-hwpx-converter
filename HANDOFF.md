@@ -2,10 +2,11 @@
 Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
 
 ## Current Status
-Branch: `feat/codex-goals-workflow`
-Current HEAD: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
+Branch: `main`
+Current HEAD: `6ba83dd` (`[chore] merge hwpx workflow`)
 Last completed implementation commit: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
-Remote: `origin` restored to `https://github.com/0xAryweb3/notion-hwpx-converter` (local git displays the SSH-rewritten URL).
+Current uncommitted implementation work: visual dogfood now ignores preserved anchored title tables for `table-paragraph-gap-risk`, with regression coverage in `src/test/hwpx-visual-dogfood.test.ts`.
+Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
 - `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`
@@ -15,9 +16,9 @@ Active plans:
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree was clean at the start of the 2026-06-17 context-save session. After the Hancom-safe layout session, only `HANDOFF.md` is expected to be modified unless the user commits it. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and `/tmp/hwpx-hancom-safe-smoke.*` and are not tracked.
-Push status: `git push -u origin feat/codex-goals-workflow` failed because GitHub authenticated as `0xDorin`, which does not have push permission to `0xAryweb3/notion-hwpx-converter`.
-Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner now creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
+Working tree was clean immediately before the 2026-06-22 GitHub identity cleanup. Expected current dirty files are `HANDOFF.md`, `src/features/hwpx/visualDogfood.ts`, and `src/test/hwpx-visual-dogfood.test.ts`. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and `/tmp/hwpx-hancom-safe-smoke.*`; refreshed QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-current/` and are not tracked.
+Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, `origin` uses the `github.com-ary` SSH alias, `ssh -T git@github.com-ary` authenticates as `0xAryweb3`, and `git push --dry-run origin HEAD` reports `Everything up-to-date`.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -70,6 +71,26 @@ Implemented:
 - README documents `hancomReflowRiskCount` in local generation reports.
 
 ## What Was Tried
+- 2026-06-22 BRIEF batch QA and anchored-title-table detector fix:
+  - Re-ran the real BRIEF batch QA under `/Users/hyeon/Desktop/hwp-result/qa-current/` with the original 7-8, 9-10, and 6-7 sample HWPX files from `/Users/hyeon/Downloads/`.
+  - Initial current-code QA result failed only on visual warnings: 7-8 and 9-10 each reported `table-paragraph-gap-risk` with `gap: 600` after `tableIndex: 1`.
+  - Root cause: `tableIndex: 1` was a preserved anchored title table, not a generated body/structure table. The `table-paragraph-gap-risk` check was applying a body-table spacing rule to sample title-area anchor tables and creating a false QA gate failure.
+  - Added a regression in `src/test/hwpx-visual-dogfood.test.ts` proving anchored title tables close to the first generated paragraph do not count as table-paragraph gap risks.
+  - Updated `src/features/hwpx/visualDogfood.ts` so `table-paragraph-gap-risk` ignores `insideAnchor` tables while preserving the warning for top-level generated tables.
+  - Verification:
+    - RED: `npm test -- src/test/hwpx-visual-dogfood.test.ts` failed with `expected 1 to be +0`.
+    - GREEN: `npm test -- src/test/hwpx-visual-dogfood.test.ts` passed 13 tests.
+    - Real BRIEF batch QA passed: 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
+    - `npm test` passed 16 files / 139 tests.
+    - `npm run build` passed.
+- 2026-06-22 GitHub identity cleanup:
+  - Root cause for GitHub showing `dorin`: repo-local Git identity was unset, so new commits inherited the global identity `0xdorin <wjs505@gmail.com>`.
+  - Confirmed `origin` now fetches and pushes through `git@github.com-ary:0xAryweb3/notion-hwpx-converter`.
+  - Set repo-local `user.name` to `0xAryweb3` and `user.email` to `96239343+0xAryweb3@users.noreply.github.com`.
+  - Verified `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` both resolve to the Ary noreply identity.
+  - Verified `ssh -T git@github.com-ary` authenticates as `0xAryweb3`.
+  - Verified `git push --dry-run origin HEAD` reports `Everything up-to-date`.
+  - Historical commits still contain their original author/committer metadata. Changing those would require an explicit history rewrite and force-push decision.
 - 2026-06-17 Hancom-safe HWPX layout session:
   - User clarified the product remains HWPX-only and that the priority is conversion quality, not UI polish or alternate formats.
   - Added and committed `docs/superpowers/specs/2026-06-17-hwpx-hancom-safe-layout-design.md` (`004d7f9`) and `docs/superpowers/plans/2026-06-17-hwpx-hancom-safe-layout.md` (`88c81d1`).
@@ -344,7 +365,7 @@ Implemented:
 - Verification after structure-motif rendering: `npm test` passed 15 files / 115 tests, `npm run build` passed, and `git diff --check` passed.
 
 ## Next Steps
-Fix GitHub auth so this machine pushes as an account with write access to `0xAryweb3/notion-hwpx-converter`, then run `git push -u origin feat/codex-goals-workflow`. Next concrete action after push: run the real BRIEF batch QA again under `/Users/hyeon/Desktop/hwp-result/qa-current/` with original sample HWPX files, inspect any `hancomReflowRiskCount`/visual warnings, then fill `hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples.
+Fill `/Users/hyeon/Desktop/hwp-result/qa-current/hancom-review.md` with Hancom page counts, later-page status, and screenshot paths for the three generated samples. Automated BRIEF batch QA is currently passing; GitHub auth is no longer the blocker, and future commits in this repo should use the repo-local Ary identity.
 
 ## Context
 The product direction is now clearer: the core value is not general Notion import, but using a sample HWPX as a formatting teacher. Exact style extraction should be deterministic through HWPX XML. AI should be introduced later for semantic block matching and ambiguity resolution, not for low-level style guessing.

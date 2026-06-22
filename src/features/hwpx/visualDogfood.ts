@@ -419,7 +419,7 @@ function collectIssues(
     }
   }
 
-  for (const table of tables.filter((item) => item.text.trim().length > 0)) {
+  for (const table of tables.filter((item) => item.text.trim().length > 0 && !item.insideAnchor)) {
     const nextParagraph = findNextTopLevelParagraphAfterTable(table, paragraphs);
 
     if (nextParagraph === undefined) {
