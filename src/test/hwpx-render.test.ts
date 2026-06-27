@@ -236,6 +236,30 @@ describe("HWPX rendering", () => {
     expect(firstLineVertPos(fourthParagraph)).toBeLessThanOrEqual(2000);
   });
 
+  it("keeps a stricter bottom reserve on real BRIEF-sized pages", () => {
+    const template = loadHwpxTemplate(
+      withSectionReplacement(
+        createPaginationTemplateZip(),
+        'width="50000" height="9000"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="0" bottom="0"/>',
+        'width="59528" height="84186"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/>'
+      )
+    );
+    const output = unzipSync(
+      generateHwpx(
+        template,
+        Array.from({ length: 43 }, (_, index) => ({
+          id: `block-${index + 1}`,
+          role: "body" as const,
+          text: `본문 ${index + 1}`
+        }))
+      )
+    );
+    const fortyThirdParagraph = paragraphXmlByText(sectionXmlFromOutput(output), "본문 43");
+
+    expect(fortyThirdParagraph).toContain('pageBreak="1"');
+    expect(firstLineVertPos(fortyThirdParagraph)).toBe(0);
+  });
+
   it("uses the full section page height when paginating generated body after a title region", () => {
     const template = loadHwpxTemplate(createTitleRegionPaginationTemplateZip());
     const output = unzipSync(
@@ -269,6 +293,37 @@ describe("HWPX rendering", () => {
     expect(tableIndex).toBeGreaterThan(0);
     expect(spacerParagraph).toContain('pageBreak="1"');
     expect(spacerParagraph).not.toContain("<hp:t>2026년 울산광역시 탄소중립지원센터 사업 소개</hp:t>");
+    expectValidXml(sectionXml);
+  });
+
+  it("keeps a structure table with its following bullet group when checking page-bottom reserve", () => {
+    const template = loadHwpxTemplate(
+      withSectionReplacement(
+        withSectionReplacement(
+          createStructureTableTemplateZip(),
+          '<hp:run charPrIDRef="81"><hp:t>울산광역시 탄소중립지원센터 BRIEF</hp:t></hp:run>',
+          '<hp:run charPrIDRef="81"><hp:secPr id="" textDirection="HORIZONTAL"><hp:pagePr landscape="WIDELY" width="59528" height="84186"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/></hp:pagePr></hp:secPr><hp:t>울산광역시 탄소중립지원센터 BRIEF</hp:t></hp:run>'
+        ),
+        'vertpos="2400"',
+        'vertpos="62000"'
+      )
+    );
+    const output = unzipSync(
+      generateHwpx(template, [
+        { id: "block-1", role: "title", text: "울산광역시 탄소중립지원센터 BRIEF 통권 제9호(2026년 5월)" },
+        { id: "block-2", role: "body", text: "2026년 브리프 연 4회 발간 예정" },
+        { id: "block-3", role: "dashItem", text: "- 첫 번째 안내" },
+        { id: "block-4", role: "dashItem", text: "- 두 번째 안내" },
+        { id: "block-5", role: "dashItem", text: "- 세 번째 안내" }
+      ])
+    );
+    const sectionXml = strFromU8(output["Contents/section0.xml"]);
+    const tableIndex = sectionXml.indexOf('id="lead-heading-table"');
+    const spacerStart = sectionXml.lastIndexOf("<hp:p", tableIndex);
+    const spacerParagraph = sectionXml.slice(spacerStart, tableIndex);
+
+    expect(tableIndex).toBeGreaterThan(0);
+    expect(spacerParagraph).toContain('pageBreak="1"');
     expectValidXml(sectionXml);
   });
 

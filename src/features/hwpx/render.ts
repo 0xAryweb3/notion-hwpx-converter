@@ -51,9 +51,10 @@ const sectionNamespace =
   'xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" ' +
   'xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core" ' +
   'xmlns:hh="http://www.hancom.co.kr/hwpml/2011/head"';
-const pageBottomHeadroomReserve = 4000;
-const sourceImageBottomHeadroomReserve = 4000;
+const minimumPageBottomHeadroomReserve = 4000;
+const maximumPageBottomHeadroomReserve = 6000;
 const tableParagraphGapReserve = 1200;
+const maxStructureTableGroupedParagraphs = 3;
 
 export function generateHwpx(template: HwpxTemplate, blocks: DocumentBlock[], options: GenerateHwpxOptions = {}): Uint8Array {
   const files: Record<string, Uint8Array> = {};
@@ -356,7 +357,7 @@ function renderLineSegArray(
   const startsNewPage = layoutState.currentVertPos > 0 &&
     (
       tentativeBottom > layoutState.pageContentHeight ||
-      tentativeBottom > layoutState.pageContentHeight - pageBottomHeadroomReserve
+      tentativeBottom > layoutState.pageContentHeight - resolvePageBottomHeadroomReserve(layoutState.pageContentHeight)
     );
   const startVertPos = startsNewPage ? 0 : tentativeStartVertPos;
 
@@ -727,7 +728,9 @@ function renderAssignedHybridBodyBlocks(
       : undefined;
 
     if (structureTable !== undefined) {
-      if (shouldStartTableOnNewPage(layoutState, structureTable.xml)) {
+      const followingParagraphReserve = estimateFollowingParagraphGroupReserve(layoutState, assignments, assignmentIndex);
+
+      if (shouldStartTableOnNewPage(layoutState, structureTable.xml, followingParagraphReserve)) {
         xml += renderPageBreakParagraph(assignment.style, paragraphIndex);
         resetLayoutStateToNewPage(layoutState);
         paragraphIndex += 1;
@@ -975,7 +978,7 @@ function appendSourceImageParagraphs(
     let vertPos = currentBottom + 1000;
     let pageBreak = false;
 
-    if (currentBottom > 0 && vertPos + imageBlockHeight > pageContentHeight - sourceImageBottomHeadroomReserve) {
+    if (currentBottom > 0 && vertPos + imageBlockHeight > pageContentHeight - resolvePageBottomHeadroomReserve(pageContentHeight)) {
       pageBreak = true;
       vertPos = 0;
     }
@@ -1785,14 +1788,100 @@ function sanitizeGeneratedTableParagraphStyles(tableXml: string, tableStyleConte
   });
 }
 
-function shouldStartTableOnNewPage(layoutState: LineLayoutState, tableXml: string): boolean {
-  const tentativeBottom = layoutState.currentVertPos + readTableLayoutReserveHeight(layoutState, tableXml);
+function shouldStartTableOnNewPage(
+  layoutState: LineLayoutState,
+  tableXml: string,
+  followingParagraphReserve = 0
+): boolean {
+  const tentativeBottom = layoutState.currentVertPos +
+    readTableLayoutReserveHeight(layoutState, tableXml) +
+    followingParagraphReserve;
 
   return layoutState.currentVertPos > 0 &&
     (
       tentativeBottom > layoutState.pageContentHeight ||
-      tentativeBottom > layoutState.pageContentHeight - pageBottomHeadroomReserve
+      tentativeBottom > layoutState.pageContentHeight - resolvePageBottomHeadroomReserve(layoutState.pageContentHeight)
     );
+}
+
+function estimateFollowingParagraphGroupReserve(
+  layoutState: LineLayoutState,
+  assignments: HwpxStyleAssignment[],
+  tableAssignmentIndex: number
+): number {
+  let reserve = 0;
+  let groupedParagraphs = 0;
+
+  for (let index = tableAssignmentIndex + 1; index < assignments.length; index += 1) {
+    const assignment = assignments[index];
+
+    if (
+      assignment === undefined ||
+      assignment.type === "table" ||
+      assignment.type === "image" ||
+      assignment.renderAs === "structureTable"
+    ) {
+      break;
+    }
+
+    if (assignment.type !== "paragraph" || assignment.style === undefined) {
+      continue;
+    }
+
+    reserve += estimateParagraphLayoutHeight(layoutState, assignment.style, assignment.text);
+
+    if (shouldAddBreakAfterAssignment(assignment, findNextMeaningfulAssignment(assignments, index))) {
+      reserve += estimateParagraphLayoutHeight(layoutState, assignment.style, "");
+    }
+
+    if (assignment.text.trim().length > 0) {
+      groupedParagraphs += 1;
+    }
+
+    if (groupedParagraphs >= maxStructureTableGroupedParagraphs) {
+      break;
+    }
+  }
+
+  return reserve;
+}
+
+function estimateParagraphLayoutHeight(
+  layoutState: LineLayoutState,
+  style: HwpxParagraphStyle,
+  rawText: string,
+  options: ParagraphLayoutOptions = {}
+): number {
+  const metrics = resolveLineMetrics(layoutState, style);
+  const paragraphMargins = layoutState.paragraphMargins.get(style.paraPrIDRef) ?? { intent: 0, left: 0, prev: 0, next: 0 };
+  const isBullet = isRoundOrDashBulletText(rawText);
+  const leftIndent = Math.max(0, paragraphMargins.left);
+  const legacyHangingIndent = isBullet && leftIndent === 0
+    ? Math.max(0, -paragraphMargins.intent)
+    : 0;
+  const firstLineIndent = leftIndent > 0 ? Math.max(0, leftIndent + paragraphMargins.intent) : 0;
+  const bulletTextOffset = isBullet && leftIndent > 0 && paragraphMargins.intent >= 0
+    ? estimateBulletTextOffset(metrics.textHeight)
+    : 0;
+  const continuationIndent = (leftIndent > 0 ? leftIndent : legacyHangingIndent) + bulletTextOffset;
+  const lineStep = metrics.textHeight + metrics.spacing;
+  const firstHorzSize = Math.max(1, metrics.horzSize - firstLineIndent);
+  const firstCharsPerLine = estimateCharsPerLine(firstHorzSize, metrics.textHeight);
+  const continuationHorzSize = Math.max(1, metrics.horzSize - continuationIndent);
+  const continuationCharsPerLine = estimateCharsPerLine(continuationHorzSize, metrics.textHeight);
+  const lineCount = computeLineTextPositions(rawText, firstCharsPerLine, continuationCharsPerLine).length;
+
+  return paragraphMargins.prev +
+    lineCount * lineStep +
+    paragraphMargins.next +
+    (options.extraAfterLines ?? 0) * lineStep;
+}
+
+function resolvePageBottomHeadroomReserve(pageContentHeight: number): number {
+  return Math.min(
+    maximumPageBottomHeadroomReserve,
+    Math.max(minimumPageBottomHeadroomReserve, Math.ceil(pageContentHeight * 0.08))
+  );
 }
 
 function resetLayoutStateToNewPage(layoutState: LineLayoutState): void {

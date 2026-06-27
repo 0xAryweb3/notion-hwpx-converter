@@ -151,6 +151,25 @@ describe("HWPX visual dogfood audit", () => {
     expect(report.summary.pageBottomTightRiskCount).toBe(1);
   });
 
+  it("uses a stricter BRIEF-page headroom threshold for Hancom-safe page counts", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="page" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:secPr id=""><hp:pagePr landscape="WIDELY" width="59528" height="84186"><hp:margin header="4252" footer="4252" gutter="0" left="8504" right="8504" top="5668" bottom="4252"/></hp:pagePr></hp:secPr></hp:run>
+  </hp:p>
+  ${paragraph("near-bottom", "1", "3", "한컴 재흐름에서 다음 쪽으로 밀릴 수 있는 문단", 66800, { textHeight: 1000, spacing: 600 })}
+</hs:sec>`);
+
+    expect(report.summary.pageContentHeight).toBe(74266);
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: "page-bottom-tight-risk",
+      severity: "warning",
+      detail: expect.objectContaining({
+        headroom: 5866
+      })
+    }));
+  });
+
   it("includes table geometry when checking page bottom headroom", () => {
     const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">

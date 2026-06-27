@@ -90,7 +90,8 @@ const emptyMargin: VisualDogfoodParagraphMargin = {
   prev: 0,
   next: 0
 };
-const pageBottomHeadroomWarningThreshold = 2000;
+const minimumPageBottomHeadroomWarningThreshold = 4000;
+const maximumPageBottomHeadroomWarningThreshold = 6000;
 const minimumFinalWrappedLineChars = 9;
 const minimumTableParagraphGap = 1200;
 
@@ -408,13 +409,14 @@ function collectIssues(
 
   for (const [pageIndex, pageBottom] of readPageBottoms(nonEmptyOutsideTable, tables)) {
     const headroom = pageContentHeight - pageBottom;
+    const threshold = resolvePageBottomHeadroomThreshold(pageContentHeight);
 
-    if (headroom >= 0 && headroom < pageBottomHeadroomWarningThreshold) {
+    if (headroom >= 0 && headroom < threshold) {
       issues.push({
         severity: "warning",
         code: "page-bottom-tight-risk",
         message: "A page has very little bottom headroom, so Hancom font/table reflow may push content to an extra page.",
-        detail: { pageIndex, pageBottom, pageContentHeight, headroom }
+        detail: { pageIndex, pageBottom, pageContentHeight, headroom, threshold }
       });
     }
   }
@@ -442,6 +444,13 @@ function collectIssues(
   }
 
   return issues;
+}
+
+function resolvePageBottomHeadroomThreshold(pageContentHeight: number): number {
+  return Math.min(
+    maximumPageBottomHeadroomWarningThreshold,
+    Math.max(minimumPageBottomHeadroomWarningThreshold, Math.ceil(pageContentHeight * 0.08))
+  );
 }
 
 function readPageBottoms(

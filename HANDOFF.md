@@ -3,9 +3,9 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 
 ## Current Status
 Branch: `main`
-Current HEAD: `6ba83dd` (`[chore] merge hwpx workflow`)
-Last completed implementation commit: `1dfd6a5` (`[fix] reserve spacing after hwpx structure tables`)
-Current uncommitted implementation work: visual dogfood now ignores preserved anchored title tables for `table-paragraph-gap-risk`, with regression coverage in `src/test/hwpx-visual-dogfood.test.ts`.
+Current HEAD before this update: `392df86` (`[fix] ignore anchored title table gap warnings`)
+Last completed implementation commit: `392df86` (`[fix] ignore anchored title table gap warnings`)
+Current uncommitted implementation work: renderer and visual dogfood now use dynamic Hancom-safe bottom headroom (`max(4000hu, 8% of page content height)`, capped at `6000hu`) and keep generated one-cell structure tables with up to three following paragraphs when deciding whether to page-break. Regression coverage is in `src/test/hwpx-render.test.ts` and `src/test/hwpx-visual-dogfood.test.ts`.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
@@ -68,9 +68,29 @@ Implemented:
 - Visual dogfood now reports `short-wrapped-tail-risk` and `table-paragraph-gap-risk`, with summary counts for both, so short accidental-looking final lines and crowded table-to-paragraph spacing are visible in QA reports.
 - The default HWPX renderer now uses a stricter `4000hu` page-bottom headroom reserve for generated paragraphs/tables and source images.
 - Generated structure table layout reservation now accounts for table out-margins, cloned table line boxes, and a `1200hu` following-gap reserve.
+- The HWPX renderer and visual dogfood now use dynamic Hancom-safe bottom headroom for real BRIEF pages, preventing a 2-page XML proxy from underestimating Hancom's 3-page reflow.
+- Generated one-cell structure tables now consider the first three following paragraphs during pagination, so a section heading/table is not separated from its bullet group by a page break.
 - README documents `hancomReflowRiskCount` in local generation reports.
 
 ## What Was Tried
+- 2026-06-27 Hancom-safe page-flow tightening:
+  - Root cause: the previous deterministic QA reported 7-8 as `pageCount: 2`, while the Hancom screenshot showed `1/3쪽`. The XML proxy was using a fixed `4000hu` bottom reserve and only checked the current paragraph/table, so the last generated paragraph could be pushed to a surprise third page by Hancom reflow.
+  - Added RED/GREEN tests for stricter BRIEF-sized page bottom headroom and for keeping a generated structure table with its following bullet group when deciding a page break.
+  - Updated `src/features/hwpx/render.ts` to use `max(4000hu, 8% page-content height)` capped at `6000hu` for generated paragraphs, structure tables, and source images.
+  - Updated structure-table pagination to include the next three generated paragraphs in the reserve calculation, preventing one-line orphan pages for the final BRIEF section.
+  - Updated `src/features/hwpx/visualDogfood.ts` to use the same dynamic headroom threshold and include the threshold in `page-bottom-tight-risk` details.
+  - Re-ran real BRIEF batch QA under `/Users/hyeon/Desktop/hwp-result/qa-current/`.
+    - Result: PASS, 3 samples, 0 failed samples, 0 output warnings/errors, 0 visual warnings/errors, 0 missing source text.
+    - New page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3.
+    - 7-8 page 3 now contains the final generated structure-table section's bullet group, not only a single orphan paragraph.
+  - Verification:
+    - RED: `npm test -- src/test/hwpx-visual-dogfood.test.ts` failed on the new BRIEF-headroom test.
+    - RED: `npm test -- src/test/hwpx-render.test.ts` failed on the new real-page reserve and structure-table group tests.
+    - GREEN: `npm test -- src/test/hwpx-visual-dogfood.test.ts` passed 14 tests.
+    - GREEN: `npm test -- src/test/hwpx-render.test.ts` passed 48 tests.
+    - Full `npm test`: 16 files / 142 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
 - 2026-06-22 BRIEF batch QA and anchored-title-table detector fix:
   - Re-ran the real BRIEF batch QA under `/Users/hyeon/Desktop/hwp-result/qa-current/` with the original 7-8, 9-10, and 6-7 sample HWPX files from `/Users/hyeon/Downloads/`.
   - Initial current-code QA result failed only on visual warnings: 7-8 and 9-10 each reported `table-paragraph-gap-risk` with `gap: 600` after `tableIndex: 1`.
