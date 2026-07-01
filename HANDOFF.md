@@ -2,10 +2,10 @@
 Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
 
 ## Current Status
-Branch: `main`
-Current HEAD before this update: `392df86` (`[fix] ignore anchored title table gap warnings`)
-Last completed implementation commit: `392df86` (`[fix] ignore anchored title table gap warnings`)
-Current uncommitted implementation work: renderer and visual dogfood now use dynamic Hancom-safe bottom headroom (`max(4000hu, 8% of page content height)`, capped at `6000hu`) and keep generated one-cell structure tables with up to three following paragraphs when deciding whether to page-break. Regression coverage is in `src/test/hwpx-render.test.ts` and `src/test/hwpx-visual-dogfood.test.ts`.
+Branch: `fix/blank-paragraph-headroom`
+Base branch: `main` at `08d1783` (`[fix] tighten hancom page flow reserve`)
+Last completed implementation commit: `99ce142` (`[fix] include blank paragraph headroom`)
+Current uncommitted implementation work: none; working tree is expected to be clean after this handoff update is committed.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
@@ -16,8 +16,8 @@ Active plans:
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Working tree was clean immediately before the 2026-06-22 GitHub identity cleanup. Expected current dirty files are `HANDOFF.md`, `src/features/hwpx/visualDogfood.ts`, and `src/test/hwpx-visual-dogfood.test.ts`. External smoke-test artifacts were generated under `/tmp/hwp-qa-review-check/` and `/tmp/hwpx-hancom-safe-smoke.*`; refreshed QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-current/` and are not tracked.
-Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, `origin` uses the `github.com-ary` SSH alias, `ssh -T git@github.com-ary` authenticates as `0xAryweb3`, and `git push --dry-run origin HEAD` reports `Everything up-to-date`.
+Latest external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3.
+Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. The feature commit author and committer are both Ary. The local `gh` CLI is still authenticated as `0xDorin`; do not create a PR through that token if the PR author must be Ary.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
@@ -70,9 +70,23 @@ Implemented:
 - Generated structure table layout reservation now accounts for table out-margins, cloned table line boxes, and a `1200hu` following-gap reserve.
 - The HWPX renderer and visual dogfood now use dynamic Hancom-safe bottom headroom for real BRIEF pages, preventing a 2-page XML proxy from underestimating Hancom's 3-page reflow.
 - Generated one-cell structure tables now consider the first three following paragraphs during pagination, so a section heading/table is not separated from its bullet group by a page break.
+- Visual dogfood now includes blank top-level paragraph line boxes in page overflow and page-bottom-headroom checks, so real empty spacer paragraphs cannot hide tight bottom margins.
 - README documents `hancomReflowRiskCount` in local generation reports.
 
 ## What Was Tried
+- 2026-07-02 blank paragraph headroom QA tightening:
+  - Status check: branch started clean from `main`/`origin/main` at `08d1783`; repo-local Git identity resolves to Ary for author and committer; `origin` fetch/push uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter`.
+  - Found a visual-QA blind spot: `page-bottom-tight-risk` used only non-empty top-level paragraphs, so real blank spacer paragraphs with `hp:linesegarray` geometry could consume bottom margin without affecting deterministic Hancom reflow risk checks.
+  - Added RED/GREEN coverage in `src/test/hwpx-visual-dogfood.test.ts` for a blank top-level paragraph whose line box pushes page bottom to `9900hu` on a `10000hu` content page.
+  - Updated `src/features/hwpx/visualDogfood.ts` so page overflow and page-bottom-headroom checks use every top-level non-table paragraph with line geometry, while overlap/style checks still use non-empty body text only.
+  - Verification:
+    - RED: `npm test -- src/test/hwpx-visual-dogfood.test.ts` failed on the new blank-paragraph headroom expectation.
+    - GREEN: `npm test -- src/test/hwpx-visual-dogfood.test.ts` passed 15 tests.
+    - Full `npm test`: 16 files / 143 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+    - Real BRIEF batch QA under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/`: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
+  - PR creation caveat: `gh auth status` reports the active GitHub CLI account as `0xDorin`, so a PR created through the current CLI token would likely show Dorin as the PR author even though Git commits and branch pushes are Ary-authored.
 - 2026-06-27 Hancom-safe page-flow tightening:
   - Root cause: the previous deterministic QA reported 7-8 as `pageCount: 2`, while the Hancom screenshot showed `1/3쪽`. The XML proxy was using a fixed `4000hu` bottom reserve and only checked the current paragraph/table, so the last generated paragraph could be pushed to a surprise third page by Hancom reflow.
   - Added RED/GREEN tests for stricter BRIEF-sized page bottom headroom and for keeping a generated structure table with its following bullet group when deciding a page break.
