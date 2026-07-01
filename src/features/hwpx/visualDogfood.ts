@@ -348,8 +348,11 @@ function collectIssues(
     }
   }
 
-  const nonEmptyOutsideTable = paragraphs.filter((paragraph) =>
-    !paragraph.insideTable && paragraph.topLevel && paragraph.text.trim().length > 0 && paragraph.lines.length > 0
+  const topLevelOutsideTableWithLines = paragraphs.filter((paragraph) =>
+    !paragraph.insideTable && paragraph.topLevel && paragraph.lines.length > 0
+  );
+  const nonEmptyOutsideTable = topLevelOutsideTableWithLines.filter((paragraph) =>
+    paragraph.text.trim().length > 0
   );
 
   for (let index = 1; index < nonEmptyOutsideTable.length; index += 1) {
@@ -375,7 +378,7 @@ function collectIssues(
     }
   }
 
-  for (const paragraph of nonEmptyOutsideTable) {
+  for (const paragraph of topLevelOutsideTableWithLines) {
     const bottom = paragraphBottom(paragraph);
 
     if (bottom > pageContentHeight) {
@@ -407,7 +410,7 @@ function collectIssues(
     }
   }
 
-  for (const [pageIndex, pageBottom] of readPageBottoms(nonEmptyOutsideTable, tables)) {
+  for (const [pageIndex, pageBottom] of readPageBottoms(topLevelOutsideTableWithLines, tables)) {
     const headroom = pageContentHeight - pageBottom;
     const threshold = resolvePageBottomHeadroomThreshold(pageContentHeight);
 

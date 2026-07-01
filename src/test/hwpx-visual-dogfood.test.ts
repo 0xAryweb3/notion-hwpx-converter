@@ -191,6 +191,28 @@ describe("HWPX visual dogfood audit", () => {
     }));
   });
 
+  it("includes blank top-level paragraph geometry when checking page bottom headroom", () => {
+    const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
+  <hp:p id="page" paraPrIDRef="1" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="1"><hp:secPr id=""><hp:pagePr landscape="WIDELY" width="50000" height="10000"><hp:margin header="0" footer="0" gutter="0" left="0" right="0" top="0" bottom="0"/></hp:pagePr></hp:secPr></hp:run>
+  </hp:p>
+  ${paragraph("visible-body", "1", "3", "본문", 3900)}
+  ${paragraph("blank-bottom", "1", "3", "", 8300)}
+</hs:sec>`);
+
+    expect(report.paragraphs.find((paragraph) => paragraph.lines[0]?.vertPos === 8300)).toMatchObject({
+      text: "",
+      topLevel: true,
+      insideTable: false
+    });
+    expect(report.issues).toContainEqual(expect.objectContaining({
+      code: "page-bottom-tight-risk",
+      severity: "warning",
+      detail: expect.objectContaining({ pageBottom: 9900 })
+    }));
+  });
+
   it("includes table geometry when checking page overflow", () => {
     const report = analyzeHwpxVisualDogfood(createHeader(), `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">
