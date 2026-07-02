@@ -220,6 +220,7 @@ export function renderHancomReviewMarkdown(summary: QaRunSummary): string {
   const rows = summary.samples.map((sample) =>
     `| ${sample.label} | ${sample.visualDogfood.pageCount} |  |  |  |  |  | ${sample.outputPath} | ${sample.reportPath} | ${sample.svgPath} |`
   ).join("\n");
+  const pageEvidenceRows = renderHancomPageEvidenceRows(summary);
 
   return [
     "# Hancom Manual Review",
@@ -244,12 +245,37 @@ export function renderHancomReviewMarkdown(summary: QaRunSummary): string {
     "| --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
     rows,
     "",
+    "## Page Evidence Checklist",
+    "",
+    "Record one row per Hancom-rendered page. If Hancom shows more pages than the proxy count, add rows manually and mark the page kind as `extra Hancom page`.",
+    "",
+    "| Sample | Page | Page kind | Hancom status | Notes | Suggested screenshot path | HWPX | SVG |",
+    "| --- | ---: | --- | --- | --- | --- | --- | --- |",
+    pageEvidenceRows,
+    "",
     "## Manual Gate",
     "",
     "- PASS only when every sample has page 1 and later pages marked acceptable.",
     "- Record any Hancom page-count mismatch in Reviewer notes.",
     "- Leave the deterministic QA result unchanged; this manual gate is separate evidence."
   ].join("\n");
+}
+
+function renderHancomPageEvidenceRows(summary: QaRunSummary): string {
+  return summary.samples
+    .flatMap((sample) => {
+      const expectedPages = Math.max(1, sample.visualDogfood.pageCount);
+      const screenshotBaseName = sample.label.replace(/[^A-Za-z0-9._-]+/g, "_");
+
+      return Array.from({ length: expectedPages }, (_, index) => {
+        const pageNumber = index + 1;
+        const pageKind = pageNumber === 1 ? "page 1" : "later page";
+        const screenshotPath = `${summary.artifactsDir}/screenshots/${screenshotBaseName}-page-${pageNumber}.png`;
+
+        return `| ${sample.label} | ${pageNumber} | ${pageKind} |  |  | ${screenshotPath} | ${sample.outputPath} | ${sample.svgPath} |`;
+      });
+    })
+    .join("\n");
 }
 
 function sampleFailureReasons(sample: QaSampleInput): string[] {

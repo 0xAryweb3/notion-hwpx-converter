@@ -4,11 +4,12 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 ## Current Status
 Branch: `fix/blank-paragraph-headroom`
 Base branch: `main` at `08d1783` (`[fix] tighten hancom page flow reserve`)
-Last completed implementation commit: `99ce142` (`[fix] include blank paragraph headroom`)
-Current uncommitted implementation work: none; working tree is expected to be clean after this handoff update is committed.
+Last completed implementation commit before this session: `99ce142` (`[fix] include blank paragraph headroom`)
+Current uncommitted implementation work: Hancom page evidence packet, expected to be committed as `[feat] add hancom page evidence packet`.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
+- `docs/superpowers/plans/2026-07-02-hancom-page-evidence-packet.md`
 - `docs/superpowers/plans/2026-06-10-hancom-manual-review-packet.md`
 - `docs/superpowers/plans/2026-06-17-hwpx-hancom-safe-layout.md`
 - `docs/superpowers/plans/2026-05-23-hancom-visual-qa-runner.md`
@@ -16,9 +17,10 @@ Active plans:
 - `docs/superpowers/plans/2026-05-04-quality-report-traceability.md`
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
-Latest external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3.
+Latest real public-Notion external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest real batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3. This session's public Notion batch attempt failed because the Notion endpoint returned HTTP 200 with `recordMap.__version__` only and no readable `recordMap.block`.
+Latest source-text QA smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
 Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. The feature commit author and committer are both Ary. The local `gh` CLI is still authenticated as `0xDorin`; do not create a PR through that token if the PR author must be Ary.
-Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet for later-page review evidence. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
+Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet with page-level evidence rows for later-page review. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
 - Project scaffold for a Vite/React/TypeScript Chrome MV3 extension.
@@ -64,6 +66,7 @@ Implemented:
 - Added `src/features/hwpx/generationReport.ts` so single-sample and batch generation share the same report-building logic.
 - Added `src/features/hwpx/qaRun.ts` for sample-spec parsing, QA gate aggregation, and Markdown summary rendering.
 - The QA runner now writes `hancom-review.md`, a manual Hancom evidence packet with per-sample page-count, first-page, later-page, screenshot-path, and notes fields. `qa-summary.md` links to this packet, and helper stdout includes `hancomReviewPath`.
+- `hancom-review.md` now includes a page evidence checklist with one row per expected proxy page, explicit `page 1` versus `later page` labels, and suggested screenshot paths under the QA output directory.
 - Added HWPX-only Hancom-safe layout reporting. Local generation JSON/console summaries now expose `hancomReflowRiskCount`, derived from deterministic output-audit and visual-dogfood risks.
 - Visual dogfood now reports `short-wrapped-tail-risk` and `table-paragraph-gap-risk`, with summary counts for both, so short accidental-looking final lines and crowded table-to-paragraph spacing are visible in QA reports.
 - The default HWPX renderer now uses a stricter `4000hu` page-bottom headroom reserve for generated paragraphs/tables and source images.
@@ -74,6 +77,22 @@ Implemented:
 - README documents `hancomReflowRiskCount` in local generation reports.
 
 ## What Was Tried
+- 2026-07-02 Hancom page evidence packet:
+  - Added `docs/superpowers/plans/2026-07-02-hancom-page-evidence-packet.md`.
+  - Root cause target: the existing `hancom-review.md` packet had only one row per sample, so later-page review evidence could still be skipped or recorded inconsistently even though that is the main remaining commercial-quality gap.
+  - Added RED/GREEN coverage in `src/test/hwpx-qa-run.test.ts` proving `renderHancomReviewMarkdown()` includes `## Page Evidence Checklist`, page 1 rows, later-page rows, and suggested screenshot paths such as `/tmp/hwp-qa/screenshots/7-8-page-2.png`.
+  - Updated `src/features/hwpx/qaRun.ts` so `hancom-review.md` renders one evidence row per expected proxy page, labels later pages explicitly, and tells reviewers to add rows manually when Hancom shows extra pages.
+  - Updated README Batch QA docs to describe the page evidence checklist.
+  - Verification:
+    - RED: `npm test -- src/test/hwpx-qa-run.test.ts` failed on missing `## Page Evidence Checklist`.
+    - GREEN: `npm test -- src/test/hwpx-qa-run.test.ts` passed 7 tests.
+    - Full `npm test`: 16 files / 143 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+    - Source-text batch QA under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/`: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
+    - Long source-text QA under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`: PASS, 1 sample, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text; generated `hancom-review.md` contains later-page rows for pages 2-5.
+  - Public Notion batch caveat: the current public URL returned HTTP 200 with `{"cursor":{"stack":[]},"recordMap":{"__version__":3}}`, so helper generation from that live URL failed before conversion with `Public Notion page did not return readable blocks`. This appears to be external Notion page/API accessibility, not a regression from the QA packet change.
+  - PR creation caveat: `gh auth status` still reports the active GitHub CLI account as `0xDorin`, so a PR created through the current CLI token would likely show Dorin as the PR author even though Git commits and branch pushes are Ary-authored.
 - 2026-07-02 blank paragraph headroom QA tightening:
   - Status check: branch started clean from `main`/`origin/main` at `08d1783`; repo-local Git identity resolves to Ary for author and committer; `origin` fetch/push uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter`.
   - Found a visual-QA blind spot: `page-bottom-tight-risk` used only non-empty top-level paragraphs, so real blank spacer paragraphs with `hp:linesegarray` geometry could consume bottom margin without affecting deterministic Hancom reflow risk checks.

@@ -167,5 +167,10 @@ describe("HWPX QA run", () => {
     expect(markdown).toContain("Later pages status");
     expect(markdown).toContain("Screenshot path");
     expect(markdown).toContain("Inspect every page after page 1");
+    expect(markdown).toContain("## Page Evidence Checklist");
+    expect(markdown).toContain("| 7-8 | 1 | page 1 |");
+    expect(markdown).toContain("| 7-8 | 2 | later page |");
+    expect(markdown).toContain("/tmp/hwp-qa/screenshots/7-8-page-2.png");
+    expect(markdown).toContain("Record one row per Hancom-rendered page");
   });
 });

@@ -118,6 +118,8 @@ Add `--open-hancom` to open each generated HWPX in Hancom Viewer after writing i
 
 Use `hancom-review.md` as the manual Hancom checklist. Open each generated HWPX, record Hancom's actual page count, inspect page 1 and later pages, and attach screenshot paths or notes for any mismatch. This is separate from the deterministic JSON/SVG gate because Hancom can reflow pages differently.
 
+The manual packet also includes a page evidence checklist. It creates one row per expected proxy page, labels page 1 separately from later pages, and suggests screenshot paths under the QA output directory so Hancom review evidence can be filled consistently.
+
 ## Load in Chrome
 
 1. Run `npm run build`.
