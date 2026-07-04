@@ -2,10 +2,10 @@
 Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
 
 ## Current Status
-Branch: `fix/blank-paragraph-headroom`
-Base branch: `main` at `08d1783` (`[fix] tighten hancom page flow reserve`)
-Last completed implementation commit before current edits: `e3577c9` (`[docs] record pr auth blocker`)
-Current uncommitted implementation work: `--source-file` support for local and batch helper source input; expected to be committed after verification.
+Branch: `main`
+Base branch: `main` at `8ed1817` (`[feat] improve hwpx qa evidence`)
+Last completed implementation commit before current edits: `8ed1817` (`[feat] improve hwpx qa evidence`)
+Current uncommitted implementation work: none.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
@@ -19,7 +19,7 @@ Active plans:
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
 Latest real public-Notion external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest real batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3. This session's public Notion batch attempt failed because the Notion endpoint returned HTTP 200 with `recordMap.__version__` only and no readable `recordMap.block`.
 Latest source-file QA smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text. Older source-text QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
-Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. The feature commit author and committer are both Ary. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR was created without `gh` via GitHub API: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/1`.
+Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR #1 was created and merged without `gh`, using the refreshed git credential only for GitHub API auth: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/1`. `origin/main` is at `8ed1817`.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet with page-level evidence rows for later-page review. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
@@ -94,6 +94,11 @@ Implemented:
   - Updated `src/features/hwpx/qaRun.ts`, `helper/qa-run.ts`, and `helper/generate-local.ts` so archived source text can be read from disk instead of requiring live Notion or shell-escaped inline text.
   - Updated README docs for `--source-file` in local generation and batch QA.
   - Source-file smoke QA under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
+  - Merged PR #1 into `main` via GitHub API squash merge as `8ed1817` (`[feat] improve hwpx qa evidence`), then fast-forwarded local `main` to `origin/main`.
+  - Post-merge verification on `main`:
+    - `npm test`: 16 files / 144 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
 - 2026-07-02 Hancom page evidence packet:
   - Added `docs/superpowers/plans/2026-07-02-hancom-page-evidence-packet.md`.
   - Root cause target: the existing `hancom-review.md` packet had only one row per sample, so later-page review evidence could still be skipped or recorded inconsistently even though that is the main remaining commercial-quality gap.
