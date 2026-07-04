@@ -2,9 +2,9 @@
 Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
 
 ## Current Status
-Branch: `main`
-Base branch: `main` at `8ed1817` (`[feat] improve hwpx qa evidence`)
-Last completed implementation commit before current edits: `8ed1817` (`[feat] improve hwpx qa evidence`)
+Branch: `feat/source-file-provenance`
+Base branch: `main` at `2ccbe2a` (`[docs] record qa evidence merge`)
+Last completed implementation commit before current edits: `19c9b15` (`[feat] record source file provenance`)
 Current uncommitted implementation work: none.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
@@ -18,8 +18,8 @@ Active plans:
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
 Latest real public-Notion external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest real batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3. This session's public Notion batch attempt failed because the Notion endpoint returned HTTP 200 with `recordMap.__version__` only and no readable `recordMap.block`.
-Latest source-file QA smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text. Older source-text QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
-Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR #1 was created and merged without `gh`, using the refreshed git credential only for GitHub API auth: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/1`. `origin/main` is at `8ed1817`.
+Latest source-file provenance smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-source-file-provenance-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text, and `qa-summary.md`, `hancom-review.md`, plus per-sample JSON show the archived source-file path. Older source-file QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text. Older source-text QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
+Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR #1 was created and merged without `gh`, using the refreshed git credential only for GitHub API auth: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/1`. `origin/main` is at `2ccbe2a`.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet with page-level evidence rows for later-page review. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
@@ -76,8 +76,21 @@ Implemented:
 - Generated one-cell structure tables now consider the first three following paragraphs during pagination, so a section heading/table is not separated from its bullet group by a page break.
 - Visual dogfood now includes blank top-level paragraph line boxes in page overflow and page-bottom-headroom checks, so real empty spacer paragraphs cannot hide tight bottom margins.
 - README documents `hancomReflowRiskCount` in local generation reports.
+- Source-file QA and generation reports now preserve archived input provenance as `source.file`; `qa-summary.md` and `hancom-review.md` show the source-file path instead of the generic `source text` label.
 
 ## What Was Tried
+- 2026-07-05 source-file provenance follow-up:
+  - Found a reproducibility gap after merging PR #1: `--source-file` runs generated good artifacts, but `qa-summary.md` and `hancom-review.md` still labeled the source as generic `source text`, and per-sample generation JSON did not preserve the archived source path.
+  - Added RED/GREEN coverage in `src/test/hwpx-qa-run.test.ts` for source-file labels in QA and Hancom markdown, and in `src/test/generate-local.test.ts` for `report.source.file`.
+  - Updated `src/features/hwpx/qaRun.ts`, `src/features/hwpx/generationReport.ts`, `helper/qa-run.ts`, and `helper/generate-local.ts` so source-file provenance flows through batch summaries, manual review packets, and per-sample JSON reports.
+  - Updated README source-file docs to describe the report provenance.
+  - Verification:
+    - RED: `npm test -- src/test/hwpx-qa-run.test.ts src/test/generate-local.test.ts` failed on missing source-file labels and missing `report.source.file`.
+    - GREEN: `npm test -- src/test/hwpx-qa-run.test.ts src/test/generate-local.test.ts` passed 2 files / 11 tests.
+    - Full `npm test`: 16 files / 144 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+    - Source-file provenance smoke under `/Users/hyeon/Desktop/hwp-result/qa-source-file-provenance-smoke/`: PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text; confirmed `qa-summary.md`, `hancom-review.md`, and `7-8.json` contain `/Users/hyeon/Desktop/hwp-result/source-fixtures/brief-smoke-source.txt`.
 - 2026-07-05 credential, PR, QA, and source-file improvement:
   - Updated local git credential for `0xAryweb3` through a hidden macOS dialog, after discovering repo-local GitHub HTTPS credentials were being intercepted by the global `gh auth git-credential` helper.
   - Set repo-local `credential.https://github.com.helper` to reset global helpers and use `osxkeychain`, then verified the refreshed credential with `GIT_TERMINAL_PROMPT=0 git ls-remote https://github.com/0xAryweb3/notion-hwpx-converter.git HEAD`.
