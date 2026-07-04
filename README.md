@@ -99,6 +99,8 @@ node_modules/.bin/vite-node helper/generate-local.ts \
   --report "/Users/hyeon/Desktop/hwp-result/rules-output.json"
 ```
 
+Use `--source-file "/path/to/source.txt"` instead of `--source-url` or `--source-text` when the public Notion endpoint is unavailable or when you want a stable archived source for repeated QA runs.
+
 The JSON report includes a post-generation `outputAudit` with a score, pass/fail status, source coverage checks, output table/image counts, red style usage, line-layout cache counts, wrapped-bullet indentation checks, long-paragraph overflow warnings, and a `hancomReflowRiskCount` for deterministic Hancom-visible layout risks.
 
 ## Batch QA
@@ -114,9 +116,13 @@ node_modules/.bin/vite-node helper/qa-run.ts \
   --sample "6-7::/path/to/sample-6-7.hwpx"
 ```
 
+The QA runner also accepts `--source-file "/path/to/source.txt"`. Prefer it for archived source text when Notion's public internal API returns an empty page shell or when you need the same input to survive network/API changes.
+
 Add `--open-hancom` to open each generated HWPX in Hancom Viewer after writing it. The QA summary does not depend on Hancom automation; it uses deterministic output audit and visual-dogfood checks.
 
 Use `hancom-review.md` as the manual Hancom checklist. Open each generated HWPX, record Hancom's actual page count, inspect page 1 and later pages, and attach screenshot paths or notes for any mismatch. This is separate from the deterministic JSON/SVG gate because Hancom can reflow pages differently.
+
+The manual packet also includes a page evidence checklist. It creates one row per expected proxy page, labels page 1 separately from later pages, and suggests screenshot paths under the QA output directory so Hancom review evidence can be filled consistently.
 
 ## Load in Chrome
 
