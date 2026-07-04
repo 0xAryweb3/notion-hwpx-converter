@@ -18,6 +18,7 @@ export interface GenerateHwpxReportOptions {
   samplePath: string;
   outputPath: string;
   sourceUrl?: string;
+  sourceFile?: string;
 }
 
 export interface GeneratedHwpxReport {
@@ -27,6 +28,7 @@ export interface GeneratedHwpxReport {
   hancomReflowRiskCount: number;
   source: {
     url?: string;
+    file?: string;
     blockCount: number;
     tableRowCount: number;
     imageCount: number;
@@ -113,6 +115,7 @@ export function generateHwpxReport(options: GenerateHwpxReportOptions): Generate
     hancomReflowRiskCount,
     source: {
       url: options.sourceUrl,
+      file: options.sourceFile,
       blockCount: options.blocks.length,
       tableRowCount: options.blocks.filter((block) => block.role === "tableRow").length,
       imageCount: options.blocks.filter((block) => block.role === "image").length

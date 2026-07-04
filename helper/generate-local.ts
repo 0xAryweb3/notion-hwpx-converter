@@ -29,7 +29,8 @@ async function main(): Promise<void> {
     blocks,
     samplePath: options.samplePath,
     outputPath: options.outputPath,
-    sourceUrl: options.sourceUrl
+    sourceUrl: options.sourceUrl,
+    sourceFile: options.sourceFile
   });
 
   await mkdir(dirname(options.outputPath), { recursive: true });

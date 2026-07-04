@@ -16,6 +16,7 @@ export interface QaRunInput {
   generatedAt: string;
   source: {
     url?: string;
+    file?: string;
     text?: string;
     blockCount: number;
   };
@@ -184,7 +185,7 @@ export function buildQaRunSummary(input: QaRunInput): QaRunSummary {
 }
 
 export function renderQaRunMarkdown(summary: QaRunSummary): string {
-  const sourceLabel = summary.source.url ?? "source text";
+  const sourceLabel = formatSourceLabel(summary.source);
   const rows = summary.samples.map((sample) =>
     `| ${sample.label} | ${sample.passed ? "PASS" : "FAIL"} | ${sample.outputAudit.errors}/${sample.outputAudit.warnings} | ${sample.visualDogfood.errors}/${sample.visualDogfood.warnings} | ${sample.visualDogfood.pageCount} | ${sample.counts.outputTables} | ${sample.counts.missingSourceTextCount} | ${sample.outputPath} | ${sample.svgPath} |`
   ).join("\n");
@@ -232,7 +233,7 @@ export function renderHancomReviewMarkdown(summary: QaRunSummary): string {
     "# Hancom Manual Review",
     "",
     `- Generated at: ${summary.generatedAt}`,
-    `- Source: ${summary.source.url ?? "source text"}`,
+    `- Source: ${formatSourceLabel(summary.source)}`,
     `- Deterministic QA result: ${summary.passed ? "PASS" : "FAIL"}`,
     `- Artifacts: ${summary.artifactsDir}`,
     "",
@@ -265,6 +266,10 @@ export function renderHancomReviewMarkdown(summary: QaRunSummary): string {
     "- Record any Hancom page-count mismatch in Reviewer notes.",
     "- Leave the deterministic QA result unchanged; this manual gate is separate evidence."
   ].join("\n");
+}
+
+function formatSourceLabel(source: QaRunSummary["source"]): string {
+  return source.url ?? source.file ?? "source text";
 }
 
 function renderHancomPageEvidenceRows(summary: QaRunSummary): string {

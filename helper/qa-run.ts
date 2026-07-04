@@ -43,7 +43,8 @@ async function main(): Promise<void> {
       blocks,
       samplePath: sample.path,
       outputPath,
-      sourceUrl: options.sourceUrl
+      sourceUrl: options.sourceUrl,
+      sourceFile: options.sourceFile
     });
     const visualSvg = renderVisualDogfoodSvg(result.report.visualDogfood);
 
@@ -89,6 +90,7 @@ async function main(): Promise<void> {
     generatedAt,
     source: {
       url: options.sourceUrl,
+      file: options.sourceFile,
       text: options.sourceText,
       blockCount: blocks.length
     },
