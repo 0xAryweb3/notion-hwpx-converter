@@ -17,6 +17,7 @@ interface CliOptions {
   reportPath: string;
   sourceUrl?: string;
   sourceText?: string;
+  sourceFile?: string;
 }
 
 async function main(): Promise<void> {
@@ -58,16 +59,17 @@ function parseArgs(args: string[]): CliOptions {
   const reportPath = values.get("report") ?? outputPath?.replace(/\.hwpx$/u, ".json");
   const sourceUrl = values.get("source-url");
   const sourceText = values.get("source-text");
+  const sourceFile = values.get("source-file");
 
   if (samplePath === undefined || outputPath === undefined || reportPath === undefined) {
     throw new Error("--sample and --output are required.");
   }
 
-  if (sourceUrl === undefined && sourceText === undefined) {
-    throw new Error("--source-url or --source-text is required.");
+  if (sourceUrl === undefined && sourceText === undefined && sourceFile === undefined) {
+    throw new Error("--source-url, --source-text, or --source-file is required.");
   }
 
-  return { samplePath, outputPath, reportPath, sourceUrl, sourceText };
+  return { samplePath, outputPath, reportPath, sourceUrl, sourceText, sourceFile };
 }
 
 async function readSourceBlocks(options: CliOptions): Promise<DocumentBlock[]> {
@@ -79,7 +81,9 @@ async function readSourceBlocks(options: CliOptions): Promise<DocumentBlock[]> {
       : normalizeLinesToBlocks(result.text.split(/\r?\n/u).map((line: string) => cleanNotionLine(line)));
   }
 
-  return normalizeLinesToBlocks((options.sourceText ?? "").split(/\r?\n/u).map((line) => cleanNotionLine(line)));
+  const sourceText = options.sourceFile === undefined ? (options.sourceText ?? "") : await readFile(options.sourceFile, "utf8");
+
+  return normalizeLinesToBlocks(sourceText.split(/\r?\n/u).map((line) => cleanNotionLine(line)));
 }
 
 function isCliEntrypoint(): boolean {

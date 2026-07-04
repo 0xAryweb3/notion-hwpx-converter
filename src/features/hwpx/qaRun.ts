@@ -6,6 +6,7 @@ export interface QaSampleSpec {
 export interface QaRunCliOptions {
   sourceUrl?: string;
   sourceText?: string;
+  sourceFile?: string;
   outputDir: string;
   samples: QaSampleSpec[];
   openHancom: boolean;
@@ -86,6 +87,7 @@ export function parseQaSampleSpec(value: string): QaSampleSpec {
 export function parseQaRunArgs(args: string[]): QaRunCliOptions {
   let sourceUrl: string | undefined;
   let sourceText: string | undefined;
+  let sourceFile: string | undefined;
   let outputDir: string | undefined;
   let openHancom = false;
   const samples: QaSampleSpec[] = [];
@@ -115,6 +117,9 @@ export function parseQaRunArgs(args: string[]): QaRunCliOptions {
       case "--source-text":
         sourceText = value;
         break;
+      case "--source-file":
+        sourceFile = value;
+        break;
       case "--output-dir":
         outputDir = value;
         break;
@@ -128,8 +133,8 @@ export function parseQaRunArgs(args: string[]): QaRunCliOptions {
     index += 1;
   }
 
-  if (sourceUrl === undefined && sourceText === undefined) {
-    throw new Error("--source-url or --source-text is required");
+  if (sourceUrl === undefined && sourceText === undefined && sourceFile === undefined) {
+    throw new Error("--source-url, --source-text, or --source-file is required");
   }
 
   if (outputDir === undefined) {
@@ -143,6 +148,7 @@ export function parseQaRunArgs(args: string[]): QaRunCliOptions {
   return {
     sourceUrl,
     sourceText,
+    sourceFile,
     outputDir,
     samples,
     openHancom

@@ -116,7 +116,7 @@ async function main(): Promise<void> {
   }, null, 2));
 }
 
-async function readSourceBlocks(options: { sourceUrl?: string; sourceText?: string }): Promise<DocumentBlock[]> {
+async function readSourceBlocks(options: { sourceUrl?: string; sourceText?: string; sourceFile?: string }): Promise<DocumentBlock[]> {
   if (options.sourceUrl !== undefined) {
     const result = await fetchPublicNotionPageText(options.sourceUrl);
 
@@ -125,7 +125,9 @@ async function readSourceBlocks(options: { sourceUrl?: string; sourceText?: stri
       : normalizeLinesToBlocks(result.text.split(/\r?\n/u).map((line: string) => cleanNotionLine(line)));
   }
 
-  return normalizeLinesToBlocks((options.sourceText ?? "").split(/\r?\n/u).map((line) => cleanNotionLine(line)));
+  const sourceText = options.sourceFile === undefined ? (options.sourceText ?? "") : await readFile(options.sourceFile, "utf8");
+
+  return normalizeLinesToBlocks(sourceText.split(/\r?\n/u).map((line) => cleanNotionLine(line)));
 }
 
 function safeArtifactName(label: string): string {

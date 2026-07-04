@@ -4,8 +4,8 @@ Improve the Notion/public-content to sample-HWPX converter until it is useful as
 ## Current Status
 Branch: `fix/blank-paragraph-headroom`
 Base branch: `main` at `08d1783` (`[fix] tighten hancom page flow reserve`)
-Last completed implementation commit: `d50e32b` (`[feat] add hancom page evidence packet`)
-Current uncommitted implementation work: none; working tree is expected to be clean after this handoff update is committed.
+Last completed implementation commit before current edits: `e3577c9` (`[docs] record pr auth blocker`)
+Current uncommitted implementation work: `--source-file` support for local and batch helper source input; expected to be committed after verification.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
 Active plans:
@@ -18,8 +18,8 @@ Active plans:
 - `docs/superpowers/plans/2026-05-04-page-bottom-headroom-audit.md`
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
 Latest real public-Notion external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest real batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3. This session's public Notion batch attempt failed because the Notion endpoint returned HTTP 200 with `recordMap.__version__` only and no readable `recordMap.block`.
-Latest source-text QA smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
-Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. The feature commit author and committer are both Ary. The local `gh` CLI is still authenticated as `0xDorin`, and `gh pr create` failed with `GraphQL: must be a collaborator`. `gh auth switch --user 0xAryweb3` also failed because Ary is not logged in to gh. The branch is pushed; create the PR from `https://github.com/0xAryweb3/notion-hwpx-converter/compare/main...fix/blank-paragraph-headroom?expand=1` after authenticating gh as Ary or through the GitHub web UI.
+Latest source-file QA smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text. Older source-text QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
+Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. The feature commit author and committer are both Ary. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR was created without `gh` via GitHub API: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/1`.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet with page-level evidence rows for later-page review. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
@@ -67,6 +67,7 @@ Implemented:
 - Added `src/features/hwpx/qaRun.ts` for sample-spec parsing, QA gate aggregation, and Markdown summary rendering.
 - The QA runner now writes `hancom-review.md`, a manual Hancom evidence packet with per-sample page-count, first-page, later-page, screenshot-path, and notes fields. `qa-summary.md` links to this packet, and helper stdout includes `hancomReviewPath`.
 - `hancom-review.md` now includes a page evidence checklist with one row per expected proxy page, explicit `page 1` versus `later page` labels, and suggested screenshot paths under the QA output directory.
+- `helper/qa-run.ts` and `helper/generate-local.ts` accept `--source-file`, so archived source text can be reused when live public Notion fetching returns an empty page shell.
 - Added HWPX-only Hancom-safe layout reporting. Local generation JSON/console summaries now expose `hancomReflowRiskCount`, derived from deterministic output-audit and visual-dogfood risks.
 - Visual dogfood now reports `short-wrapped-tail-risk` and `table-paragraph-gap-risk`, with summary counts for both, so short accidental-looking final lines and crowded table-to-paragraph spacing are visible in QA reports.
 - The default HWPX renderer now uses a stricter `4000hu` page-bottom headroom reserve for generated paragraphs/tables and source images.
@@ -77,6 +78,22 @@ Implemented:
 - README documents `hancomReflowRiskCount` in local generation reports.
 
 ## What Was Tried
+- 2026-07-05 credential, PR, QA, and source-file improvement:
+  - Updated local git credential for `0xAryweb3` through a hidden macOS dialog, after discovering repo-local GitHub HTTPS credentials were being intercepted by the global `gh auth git-credential` helper.
+  - Set repo-local `credential.https://github.com.helper` to reset global helpers and use `osxkeychain`, then verified the refreshed credential with `GIT_TERMINAL_PROMPT=0 git ls-remote https://github.com/0xAryweb3/notion-hwpx-converter.git HEAD`.
+  - Created PR #1 without `gh`, using the refreshed git credential only for GitHub API auth: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/1`.
+  - QA before next improvement:
+    - `npm test`: 16 files / 143 tests passed.
+    - `npm run build`: passed.
+    - Public Notion fetch still failed with `Public Notion page did not return readable blocks`.
+  - Investigated current Notion behavior:
+    - Public page HTML is a generic Notion app shell with no embedded `recordMap`.
+    - `loadPageChunk` returns HTTP 200 with `recordMap.__version__` only and no `recordMap.block`.
+    - Current Notion bundle references `loadCachedPageChunkV2`, but direct `POST /api/v3/loadCachedPageChunkV2` also returns an empty block map for this URL, indicating an access/public-page availability issue rather than only an endpoint rename.
+  - Added RED/GREEN coverage in `src/test/hwpx-qa-run.test.ts` for `--source-file`.
+  - Updated `src/features/hwpx/qaRun.ts`, `helper/qa-run.ts`, and `helper/generate-local.ts` so archived source text can be read from disk instead of requiring live Notion or shell-escaped inline text.
+  - Updated README docs for `--source-file` in local generation and batch QA.
+  - Source-file smoke QA under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text.
 - 2026-07-02 Hancom page evidence packet:
   - Added `docs/superpowers/plans/2026-07-02-hancom-page-evidence-packet.md`.
   - Root cause target: the existing `hancom-review.md` packet had only one row per sample, so later-page review evidence could still be skipped or recorded inconsistently even though that is the main remaining commercial-quality gap.

@@ -36,11 +36,26 @@ describe("HWPX QA run", () => {
     });
   });
 
+  it("parses source-file QA runner arguments for archived source text", () => {
+    expect(parseQaRunArgs([
+      "--source-file", "/tmp/brief-source.txt",
+      "--output-dir", "/tmp/hwp-qa",
+      "--sample", "a::/tmp/a.hwpx"
+    ])).toEqual({
+      sourceFile: "/tmp/brief-source.txt",
+      outputDir: "/tmp/hwp-qa",
+      samples: [
+        { label: "a", path: "/tmp/a.hwpx" }
+      ],
+      openHancom: false
+    });
+  });
+
   it("rejects QA runner arguments without source input", () => {
     expect(() => parseQaRunArgs([
       "--output-dir", "/tmp/hwp-qa",
       "--sample", "a::/tmp/a.hwpx"
-    ])).toThrow("--source-url or --source-text is required");
+    ])).toThrow("--source-url, --source-text, or --source-file is required");
   });
 
   it("fails the run when any generated report has visual warnings", () => {
