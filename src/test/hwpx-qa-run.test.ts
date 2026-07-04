@@ -99,7 +99,7 @@ describe("HWPX QA run", () => {
   it("renders a Markdown summary with artifact paths and key counts", () => {
     const summary = buildQaRunSummary({
       generatedAt: "2026-05-23T00:00:00.000Z",
-      source: { text: "본문", blockCount: 1 },
+      source: { file: "/tmp/brief-source.txt", blockCount: 1 },
       artifactsDir: "/tmp/hwp-qa",
       samples: [
         {
@@ -133,6 +133,7 @@ describe("HWPX QA run", () => {
 
     expect(markdown).toContain("# HWPX QA Run");
     expect(markdown).toContain("sample-a");
+    expect(markdown).toContain("- Source: /tmp/brief-source.txt");
     expect(markdown).toContain("/tmp/hwp-qa/sample-a.hwpx");
     expect(markdown).toContain("pageBottomTightRiskCount");
     expect(markdown).toContain("hancom-review.md");
@@ -141,7 +142,7 @@ describe("HWPX QA run", () => {
   it("renders a Hancom manual review packet with editable evidence fields", () => {
     const summary = buildQaRunSummary({
       generatedAt: "2026-06-10T00:00:00.000Z",
-      source: { url: "https://example.notion.site/page", blockCount: 3 },
+      source: { file: "/tmp/brief-source.txt", blockCount: 3 },
       artifactsDir: "/tmp/hwp-qa",
       samples: [
         {
@@ -174,6 +175,7 @@ describe("HWPX QA run", () => {
     const markdown = renderHancomReviewMarkdown(summary);
 
     expect(markdown).toContain("# Hancom Manual Review");
+    expect(markdown).toContain("- Source: /tmp/brief-source.txt");
     expect(markdown).toContain("/tmp/hwp-qa/7-8.hwpx");
     expect(markdown).toContain("/tmp/hwp-qa/7-8.json");
     expect(markdown).toContain("/tmp/hwp-qa/7-8.svg");

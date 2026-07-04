@@ -57,13 +57,14 @@ describe("generate-local source normalization", () => {
       blocks,
       samplePath: "/tmp/sample.hwpx",
       outputPath: "/tmp/output.hwpx",
-      sourceUrl: "https://example.notion.site/page"
+      sourceFile: "/tmp/brief-source.txt"
     });
 
     expect(result.output.byteLength).toBeGreaterThan(0);
     expect(result.report.outputAudit.passed).toBe(true);
     expect(result.report.visualDogfood.summary.pageOverflowRiskCount).toBe(0);
     expect(result.report.hancomReflowRiskCount).toBe(0);
+    expect(result.report.source.file).toBe("/tmp/brief-source.txt");
     expect(result.consoleSummary.score).toBe(result.report.outputAudit.score);
     expect(result.consoleSummary.hancomReflowRiskCount).toBe(0);
     expect(result.consoleSummary.missingSourceTextCount).toBe(0);
