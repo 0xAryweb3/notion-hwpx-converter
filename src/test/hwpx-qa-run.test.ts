@@ -4,7 +4,8 @@ import {
   parseQaRunArgs,
   parseQaSampleSpec,
   renderHancomReviewMarkdown,
-  renderQaRunMarkdown
+  renderQaRunMarkdown,
+  validateHancomReviewMarkdown
 } from "../features/hwpx/qaRun";
 
 describe("HWPX QA run", () => {
@@ -189,5 +190,65 @@ describe("HWPX QA run", () => {
     expect(markdown).toContain("| 7-8 | 2 | later page |");
     expect(markdown).toContain("/tmp/hwp-qa/screenshots/7-8-page-2.png");
     expect(markdown).toContain("Record one row per Hancom-rendered page");
+    expect(markdown).toContain("helper/hancom-review-gate.ts");
+  });
+
+  it("fails the Hancom manual gate when review evidence is still blank", () => {
+    const markdown = [
+      "# Hancom Manual Review",
+      "",
+      "## Review Matrix",
+      "",
+      "| Sample | Expected proxy pages | Hancom page count | Page 1 status | Later pages status | Screenshot path | Reviewer notes | HWPX | JSON | SVG |",
+      "| --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "| 7-8 | 2 |  |  |  |  |  | /tmp/7-8.hwpx | /tmp/7-8.json | /tmp/7-8.svg |",
+      "",
+      "## Page Evidence Checklist",
+      "",
+      "| Sample | Page | Page kind | Hancom status | Notes | Suggested screenshot path | HWPX | SVG |",
+      "| --- | ---: | --- | --- | --- | --- | --- | --- |",
+      "| 7-8 | 1 | page 1 |  |  | /tmp/screenshots/7-8-page-1.png | /tmp/7-8.hwpx | /tmp/7-8.svg |",
+      "| 7-8 | 2 | later page |  |  | /tmp/screenshots/7-8-page-2.png | /tmp/7-8.hwpx | /tmp/7-8.svg |"
+    ].join("\n");
+
+    const result = validateHancomReviewMarkdown(markdown);
+
+    expect(result.passed).toBe(false);
+    expect(result.totals.samples).toBe(1);
+    expect(result.totals.pageRows).toBe(2);
+    expect(result.errors).toContain("7-8: Hancom page count is required");
+    expect(result.errors).toContain("7-8 page 2: Hancom status is required");
+  });
+
+  it("passes the Hancom manual gate when every page has accepted evidence", () => {
+    const markdown = [
+      "# Hancom Manual Review",
+      "",
+      "## Review Matrix",
+      "",
+      "| Sample | Expected proxy pages | Hancom page count | Page 1 status | Later pages status | Screenshot path | Reviewer notes | HWPX | JSON | SVG |",
+      "| --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+      "| 7-8 | 2 | 2 | PASS | PASS | /tmp/screenshots/7-8-accepted.png | checked in Hancom | /tmp/7-8.hwpx | /tmp/7-8.json | /tmp/7-8.svg |",
+      "",
+      "## Page Evidence Checklist",
+      "",
+      "| Sample | Page | Page kind | Hancom status | Notes | Suggested screenshot path | HWPX | SVG |",
+      "| --- | ---: | --- | --- | --- | --- | --- | --- |",
+      "| 7-8 | 1 | page 1 | PASS | title and bullets ok | /tmp/screenshots/7-8-page-1.png | /tmp/7-8.hwpx | /tmp/7-8.svg |",
+      "| 7-8 | 2 | later page | PASS | later page ok | /tmp/screenshots/7-8-page-2.png | /tmp/7-8.hwpx | /tmp/7-8.svg |"
+    ].join("\n");
+
+    const result = validateHancomReviewMarkdown(markdown);
+
+    expect(result).toEqual({
+      passed: true,
+      errors: [],
+      warnings: [],
+      totals: {
+        samples: 1,
+        pageRows: 2,
+        acceptedPageRows: 2
+      }
+    });
   });
 });
