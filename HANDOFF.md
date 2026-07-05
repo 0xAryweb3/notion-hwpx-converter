@@ -2,9 +2,9 @@
 Improve the Notion/public-content to sample-HWPX converter until it is useful as a commercial-quality HWPX drafting tool, with deterministic sample-format extraction and explicit quality reports.
 
 ## Current Status
-Branch: `feat/hancom-review-gate`
-Base branch: `main` at `73941c5` (`[docs] record source provenance merge`)
-Last completed implementation commit before current edits: `235a204` (`[feat] add hancom review gate`)
+Branch: `main`
+Base branch: `main` at `18698f7` (`[feat] add hancom review gate`)
+Last completed implementation commit before current edits: `18698f7` (`[feat] add hancom review gate`)
 Current uncommitted implementation work: none.
 Remote: `origin` uses `git@github.com-ary:0xAryweb3/notion-hwpx-converter` for fetch and push.
 Active brief: `docs/superpowers/plans/2026-05-03-codex-goals-session-brief.md`
@@ -19,7 +19,7 @@ Active plans:
 Active audit: `docs/superpowers/specs/2026-05-04-commercial-quality-completion-audit.md`
 Latest real public-Notion external QA artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-blank-paragraph-headroom/` and are not tracked. Latest real batch result: PASS, 3 samples, 0 failed samples, 0 output errors/warnings, 0 visual errors/warnings, 0 missing source text. Page counts: 7-8 = 3, 9-10 = 2, 6-7 = 3. This session's public Notion batch attempt failed because the Notion endpoint returned HTTP 200 with `recordMap.__version__` only and no readable `recordMap.block`.
 Latest source-file provenance smoke artifacts were generated under `/Users/hyeon/Desktop/hwp-result/qa-source-file-provenance-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text, and `qa-summary.md`, `hancom-review.md`, plus per-sample JSON show the archived source-file path. Older source-file QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-source-file-smoke/`; PASS, 3 samples, 0 failed samples, 0 output/visual warnings, 0 missing source text. Older source-text QA smoke artifacts remain under `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-smoke/` and `/Users/hyeon/Desktop/hwp-result/qa-page-evidence-long-smoke/`; both are untracked and passed deterministic QA.
-Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR #1 and PR #2 were created and merged without `gh`, using the refreshed git credential only for GitHub API auth. `origin/main` is at `73941c5`.
+Push/auth status: repo-local Git identity is fixed to `0xAryweb3 <96239343+0xAryweb3@users.noreply.github.com>`, and `origin` uses the `github.com-ary` SSH alias. Local git credential was updated for `0xAryweb3` and verified with `git ls-remote`. PR #1, PR #2, and PR #3 were created and merged without `gh`, using the refreshed git credential only for GitHub API auth. `origin/main` is at `18698f7`.
 Known unresolved gap: XML-level audits and SVG visual dogfood previews pass on current code, and the QA runner creates a manual `hancom-review.md` packet with page-level evidence rows for later-page review. Direct Hancom screenshot capture works when the user grants screen-recording permission, but app-control automation through `System Events` was previously denied and a low-level PageDown attempt produced black screenshots. Do not mark the active goal complete until the manual review packet is filled for real BRIEF samples or a reliable Hancom/OCR automation path is added.
 
 Implemented:
@@ -92,6 +92,13 @@ Implemented:
     - `npm run build`: passed.
     - `git diff --check`: passed.
     - CLI smoke on `/Users/hyeon/Desktop/hwp-result/qa-source-file-provenance-smoke/hancom-review.md` returned `passed: false` and exit `1`, proving blank real packets are now blocked until manual evidence is filled.
+  - Created PR #3 without `gh`, using the refreshed git credential only for GitHub API auth: `https://github.com/0xAryweb3/notion-hwpx-converter/pull/3`.
+  - Merged PR #3 into `main` via GitHub API squash merge as `18698f7` (`[feat] add hancom review gate`), then fast-forwarded local `main` to `origin/main`.
+  - Post-merge verification on `main`:
+    - `npm test`: 16 files / 146 tests passed.
+    - `npm run build`: passed.
+    - `git diff --check`: passed.
+    - CLI smoke on `/Users/hyeon/Desktop/hwp-result/qa-source-file-provenance-smoke/hancom-review.md` returned `passed: false` and exit `1`, proving blank real packets are still blocked after merge.
 - 2026-07-05 source-file provenance follow-up:
   - Found a reproducibility gap after merging PR #1: `--source-file` runs generated good artifacts, but `qa-summary.md` and `hancom-review.md` still labeled the source as generic `source text`, and per-sample generation JSON did not preserve the archived source path.
   - Added RED/GREEN coverage in `src/test/hwpx-qa-run.test.ts` for source-file labels in QA and Hancom markdown, and in `src/test/generate-local.test.ts` for `report.source.file`.
