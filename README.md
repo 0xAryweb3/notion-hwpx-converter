@@ -124,6 +124,14 @@ Use `hancom-review.md` as the manual Hancom checklist. Open each generated HWPX,
 
 The manual packet also includes a page evidence checklist. It creates one row per expected proxy page, labels page 1 separately from later pages, and suggests screenshot paths under the QA output directory so Hancom review evidence can be filled consistently.
 
+After filling `hancom-review.md`, run the manual gate:
+
+```bash
+node_modules/.bin/vite-node helper/hancom-review-gate.ts "/Users/hyeon/Desktop/hwp-result/qa-current/hancom-review.md"
+```
+
+The gate fails until every sample has a Hancom page count, accepted page 1/later-page statuses, a screenshot path, and page evidence rows for the Hancom-rendered pages.
+
 ## Load in Chrome
 
 1. Run `npm run build`.

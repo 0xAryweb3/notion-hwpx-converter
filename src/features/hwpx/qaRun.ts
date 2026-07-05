@@ -72,6 +72,17 @@ export interface QaSampleSummary extends QaSampleInput {
   failureReasons: string[];
 }
 
+export interface HancomReviewValidation {
+  passed: boolean;
+  errors: string[];
+  warnings: string[];
+  totals: {
+    samples: number;
+    pageRows: number;
+    acceptedPageRows: number;
+  };
+}
+
 export function parseQaSampleSpec(value: string): QaSampleSpec {
   const separatorIndex = value.indexOf("::");
 
@@ -264,8 +275,116 @@ export function renderHancomReviewMarkdown(summary: QaRunSummary): string {
     "",
     "- PASS only when every sample has page 1 and later pages marked acceptable.",
     "- Record any Hancom page-count mismatch in Reviewer notes.",
-    "- Leave the deterministic QA result unchanged; this manual gate is separate evidence."
+    "- Leave the deterministic QA result unchanged; this manual gate is separate evidence.",
+    "- After filling this file, run:",
+    "",
+    "```bash",
+    `node_modules/.bin/vite-node helper/hancom-review-gate.ts ${summary.artifactsDir}/hancom-review.md`,
+    "```"
   ].join("\n");
+}
+
+export function validateHancomReviewMarkdown(markdown: string): HancomReviewValidation {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const reviewRows = parseMarkdownTable(markdown, "Expected proxy pages");
+  const pageRows = parseMarkdownTable(markdown, "Page kind");
+  const pageRowsBySample = new Map<string, MarkdownTableRow[]>();
+  let acceptedPageRows = 0;
+
+  if (reviewRows.length === 0) {
+    errors.push("Hancom review matrix is missing");
+  }
+
+  if (pageRows.length === 0) {
+    errors.push("Hancom page evidence checklist is missing");
+  }
+
+  for (const row of pageRows) {
+    const sample = readCell(row, "Sample") || "unknown sample";
+    const page = readCell(row, "Page") || "?";
+    const status = readCell(row, "Hancom status");
+
+    if (!pageRowsBySample.has(sample)) {
+      pageRowsBySample.set(sample, []);
+    }
+
+    pageRowsBySample.get(sample)?.push(row);
+
+    if (status.length === 0) {
+      errors.push(`${sample} page ${page}: Hancom status is required`);
+      continue;
+    }
+
+    if (!isAcceptedStatus(status) && !isNotApplicableStatus(status)) {
+      errors.push(`${sample} page ${page}: Hancom status must be PASS or N/A`);
+      continue;
+    }
+
+    if (isAcceptedStatus(status)) {
+      acceptedPageRows += 1;
+    }
+  }
+
+  for (const row of reviewRows) {
+    const sample = readCell(row, "Sample") || "unknown sample";
+    const expectedProxyPages = parsePositiveInteger(readCell(row, "Expected proxy pages"));
+    const hancomPageCountText = readCell(row, "Hancom page count");
+    const hancomPageCount = parsePositiveInteger(hancomPageCountText);
+    const page1Status = readCell(row, "Page 1 status");
+    const laterPagesStatus = readCell(row, "Later pages status");
+    const screenshotPath = readCell(row, "Screenshot path");
+
+    if (hancomPageCountText.length === 0) {
+      errors.push(`${sample}: Hancom page count is required`);
+    } else if (hancomPageCount === null) {
+      errors.push(`${sample}: Hancom page count must be a positive number`);
+    }
+
+    if (page1Status.length === 0) {
+      errors.push(`${sample}: Page 1 status is required`);
+    } else if (!isAcceptedStatus(page1Status)) {
+      errors.push(`${sample}: Page 1 status must be PASS`);
+    }
+
+    const laterPagesRequired = Math.max(expectedProxyPages ?? 1, hancomPageCount ?? 1) > 1;
+
+    if (laterPagesRequired && laterPagesStatus.length === 0) {
+      errors.push(`${sample}: Later pages status is required`);
+    } else if (laterPagesRequired && !isAcceptedStatus(laterPagesStatus)) {
+      errors.push(`${sample}: Later pages status must be PASS`);
+    } else if (!laterPagesRequired && laterPagesStatus.length > 0 && !isAcceptedStatus(laterPagesStatus) && !isNotApplicableStatus(laterPagesStatus)) {
+      errors.push(`${sample}: Later pages status must be PASS or N/A`);
+    }
+
+    if (screenshotPath.length === 0) {
+      errors.push(`${sample}: Screenshot path is required`);
+    }
+
+    if (hancomPageCount !== null) {
+      const samplePageRows = pageRowsBySample.get(sample) ?? [];
+      const coveredPages = new Set(samplePageRows
+        .map((pageRow) => parsePositiveInteger(readCell(pageRow, "Page")))
+        .filter((pageNumber): pageNumber is number => pageNumber !== null));
+
+      for (let pageNumber = 1; pageNumber <= hancomPageCount; pageNumber += 1) {
+        if (!coveredPages.has(pageNumber)) {
+          errors.push(`${sample}: page ${pageNumber} evidence row is missing`);
+        }
+      }
+    }
+  }
+
+  return {
+    passed: errors.length === 0,
+    errors,
+    warnings,
+    totals: {
+      samples: reviewRows.length,
+      pageRows: pageRows.length,
+      acceptedPageRows
+    }
+  };
 }
 
 function formatSourceLabel(source: QaRunSummary["source"]): string {
@@ -310,4 +429,80 @@ function sampleFailureReasons(sample: QaSampleInput): string[] {
 
 function sum<T>(items: T[], read: (item: T) => number): number {
   return items.reduce((total, item) => total + read(item), 0);
+}
+
+type MarkdownTableRow = Record<string, string>;
+
+function parseMarkdownTable(markdown: string, requiredHeader: string): MarkdownTableRow[] {
+  const lines = markdown.split(/\r?\n/u);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]?.trim() ?? "";
+
+    if (!line.startsWith("|") || !line.includes(requiredHeader)) {
+      continue;
+    }
+
+    const headers = splitMarkdownRow(line);
+    const rows: MarkdownTableRow[] = [];
+
+    for (let rowIndex = index + 2; rowIndex < lines.length; rowIndex += 1) {
+      const rowLine = lines[rowIndex]?.trim() ?? "";
+
+      if (!rowLine.startsWith("|")) {
+        break;
+      }
+
+      if (isMarkdownSeparatorRow(rowLine)) {
+        continue;
+      }
+
+      const cells = splitMarkdownRow(rowLine);
+      const row: MarkdownTableRow = {};
+
+      headers.forEach((header, cellIndex) => {
+        row[header] = cells[cellIndex] ?? "";
+      });
+
+      rows.push(row);
+    }
+
+    return rows;
+  }
+
+  return [];
+}
+
+function splitMarkdownRow(row: string): string[] {
+  return row
+    .replace(/^\|/u, "")
+    .replace(/\|$/u, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isMarkdownSeparatorRow(row: string): boolean {
+  return splitMarkdownRow(row).every((cell) => /^:?-{3,}:?$/u.test(cell));
+}
+
+function readCell(row: MarkdownTableRow, key: string): string {
+  return row[key]?.trim() ?? "";
+}
+
+function parsePositiveInteger(value: string): number | null {
+  if (!/^\d+$/u.test(value.trim())) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value.trim(), 10);
+
+  return parsed > 0 ? parsed : null;
+}
+
+function isAcceptedStatus(value: string): boolean {
+  return /^(pass|ok|accepted|checked|통과|정상|확인)$/iu.test(value.trim());
+}
+
+function isNotApplicableStatus(value: string): boolean {
+  return /^(n\/a|na|-|해당 없음|없음|not applicable)$/iu.test(value.trim());
 }
